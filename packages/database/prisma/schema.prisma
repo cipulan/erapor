@@ -93,15 +93,17 @@ enum AchievementStatus {
 }
 
 model School {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name        String
-  code        String?  @unique
-  timezone    String   @default("Asia/Jakarta")
-  address     String?
-  phone       String?
-  email       String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name           String
+  code           String?  @unique
+  timezone       String   @default("Asia/Jakarta")
+  address        String?
+  phone          String?
+  email          String?
+  headmasterName String?  @map("headmaster_name")
+  headmasterNip  String?  @map("headmaster_nip")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
   users               User[]
   students            Student[]

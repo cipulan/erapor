@@ -31,6 +31,27 @@ export interface UserItem extends UserSummary {
   lastLoginAt: string | null;
 }
 
+export interface SchoolProfile {
+  id: string;
+  name: string;
+  code: string | null;
+  timezone: string;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  headmasterName: string | null;
+  headmasterNip: string | null;
+}
+
+export interface UpdateSchoolInput {
+  name: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  headmasterName?: string;
+  headmasterNip?: string;
+}
+
 export interface UpdateProfileInput {
   fullName: string;
 }

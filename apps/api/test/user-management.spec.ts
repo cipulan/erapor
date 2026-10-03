@@ -13,6 +13,7 @@ import {
   SetUserActiveDto,
   UpdateProfileDto,
 } from "../src/users/dto/user.dto";
+import { UpdateSchoolDto } from "../src/school/dto/school.dto";
 
 describe("generatePassword", () => {
   it("menghasilkan password 12 karakter secara default", () => {
@@ -158,5 +159,33 @@ describe("RolesGuard untuk endpoint admin", () => {
       const ctx = contextFor(Bebas.prototype.handler, Bebas, role);
       expect(guard.canActivate(ctx)).toBe(true);
     }
+  });
+});
+
+describe("UpdateSchoolDto", () => {
+  it("menolak nama sekolah kurang dari 3 karakter", async () => {
+    const dto = new UpdateSchoolDto();
+    dto.name = "SD";
+    const errors = await validate(dto);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0].property).toBe("name");
+  });
+
+  it("menolak email sekolah yang tidak valid", async () => {
+    const dto = new UpdateSchoolDto();
+    dto.name = "SDN 01 Contoh";
+    dto.email = "bukan-email";
+    const errors = await validate(dto);
+    expect(errors.some((e) => e.property === "email")).toBe(true);
+  });
+
+  it("menerima payload lengkap yang valid", async () => {
+    const dto = new UpdateSchoolDto();
+    dto.name = "SDN 01 Contoh";
+    dto.address = "Jl. Pendidikan No. 1";
+    dto.headmasterName = "Drs. Budi";
+    dto.headmasterNip = "19650101 199003 1 002";
+    const errors = await validate(dto);
+    expect(errors).toHaveLength(0);
   });
 });

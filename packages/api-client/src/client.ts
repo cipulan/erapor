@@ -41,6 +41,7 @@ import type {
   ReportCardDetail,
   ResetPasswordInput,
   ResetPasswordResult,
+  SchoolProfile,
   Semester,
   Student,
   StudentDetail,
@@ -48,6 +49,7 @@ import type {
   Subject,
   TeacherAssignment,
   UpdateProfileInput,
+  UpdateSchoolInput,
   UpsertKktpInput,
   UserItem,
   UserProfile,
@@ -174,6 +176,12 @@ export function createApiClient(options: ClientOptions) {
       update: (data: UpdateProfileInput) => put<UserProfile>("/profile", data),
       changePassword: (data: ChangePasswordInput) =>
         post<MessageResult>("/profile/change-password", data),
+    },
+
+    // ---- Sekolah ----
+    school: {
+      get: () => get<SchoolProfile>("/school"),
+      update: (data: UpdateSchoolInput) => put<SchoolProfile>("/school", data),
     },
 
     // ---- Pengguna (khusus SUPERADMIN) ----

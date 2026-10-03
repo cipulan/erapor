@@ -117,7 +117,7 @@ export class ReportsService {
       status: report.status,
       publishedAt: report.publishedAt ? report.publishedAt.toISOString() : null,
       homeroomTeacherName: klass.homeroomTeacher?.fullName ?? null,
-      headmasterName: null,
+      headmasterName: school.headmasterName ?? null,
       subjects: report.subjects.map((s) => ({
         subjectName: s.subjectName,
         finalScore: Math.round(Number(new Decimal(s.finalScore.toString()).toString())),

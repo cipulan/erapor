@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { UserProfile } from "@erapor/api-client";
+import type { SchoolProfile, UserProfile } from "@erapor/api-client";
 import { api } from "@/lib/api";
 import { errorMessage } from "@/lib/format";
 import { useAuth, useRequireAuth } from "@/components/auth";
@@ -29,12 +29,40 @@ export default function ProfilPage() {
   const [savingPw, setSavingPw] = useState(false);
   const [pwMsg, setPwMsg] = useState<{ kind: "error" | "success"; text: string } | null>(null);
 
+  const [school, setSchool] = useState<SchoolProfile | null>(null);
+  const [schoolForm, setSchoolForm] = useState({
+    name: "",
+    address: "",
+    phone: "",
+    email: "",
+    headmasterName: "",
+    headmasterNip: "",
+  });
+  const [savingSchool, setSavingSchool] = useState(false);
+  const [schoolMsg, setSchoolMsg] = useState<{ kind: "error" | "success"; text: string } | null>(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const p = await api().profile.get();
       setProfile(p);
       setFullName(p.fullName);
+      if (p.role === "SUPERADMIN") {
+        try {
+          const s = await api().school.get();
+          setSchool(s);
+          setSchoolForm({
+            name: s.name,
+            address: s.address ?? "",
+            phone: s.phone ?? "",
+            email: s.email ?? "",
+            headmasterName: s.headmasterName ?? "",
+            headmasterNip: s.headmasterNip ?? "",
+          });
+        } catch {
+          setSchool(null);
+        }
+      }
     } catch {
       setProfile(null);
     } finally {
@@ -92,6 +120,31 @@ export default function ProfilPage() {
     }
   }
 
+  async function saveSchool() {
+    setSchoolMsg(null);
+    if (schoolForm.name.trim().length < 3) {
+      setSchoolMsg({ kind: "error", text: "Nama sekolah minimal 3 karakter." });
+      return;
+    }
+    setSavingSchool(true);
+    try {
+      const s = await api().school.update({
+        name: schoolForm.name.trim(),
+        address: schoolForm.address,
+        phone: schoolForm.phone,
+        email: schoolForm.email,
+        headmasterName: schoolForm.headmasterName,
+        headmasterNip: schoolForm.headmasterNip,
+      });
+      setSchool(s);
+      setSchoolMsg({ kind: "success", text: "Data sekolah berhasil diperbarui." });
+    } catch (err) {
+      setSchoolMsg({ kind: "error", text: errorMessage(err) });
+    } finally {
+      setSavingSchool(false);
+    }
+  }
+
   if (authLoading || loading) return <Spinner />;
 
   return (
@@ -121,6 +174,77 @@ export default function ProfilPage() {
           {savingName ? "Menyimpan..." : "Simpan Nama"}
         </Button>
       </Card>
+
+      {profile?.role === "SUPERADMIN" && (
+        <Card
+          title="Data Sekolah"
+          actions={<span className="badge green">Khusus Superadmin</span>}
+        >
+          <Alert kind="error">{school ? "" : "Gagal memuat data sekolah."}</Alert>
+          <Field label="Nama sekolah">
+            <input
+              type="text"
+              value={schoolForm.name}
+              onChange={(e) => setSchoolForm({ ...schoolForm, name: e.target.value })}
+              placeholder="Nama sekolah"
+              maxLength={120}
+            />
+          </Field>
+          <Field label="Alamat">
+            <input
+              type="text"
+              value={schoolForm.address}
+              onChange={(e) => setSchoolForm({ ...schoolForm, address: e.target.value })}
+              placeholder="Alamat sekolah"
+              maxLength={200}
+            />
+          </Field>
+          <div className="form-row">
+            <Field label="Telepon">
+              <input
+                type="text"
+                value={schoolForm.phone}
+                onChange={(e) => setSchoolForm({ ...schoolForm, phone: e.target.value })}
+                placeholder="Nomor telepon"
+                maxLength={30}
+              />
+            </Field>
+            <Field label="Email sekolah">
+              <input
+                type="email"
+                value={schoolForm.email}
+                onChange={(e) => setSchoolForm({ ...schoolForm, email: e.target.value })}
+                placeholder="Email sekolah"
+                maxLength={120}
+              />
+            </Field>
+          </div>
+          <div className="form-row">
+            <Field label="Nama kepala sekolah" hint="Nama ini tercetak sebagai penandatangan di rapor PDF.">
+              <input
+                type="text"
+                value={schoolForm.headmasterName}
+                onChange={(e) => setSchoolForm({ ...schoolForm, headmasterName: e.target.value })}
+                placeholder="Nama kepala sekolah"
+                maxLength={100}
+              />
+            </Field>
+            <Field label="NIP kepala sekolah">
+              <input
+                type="text"
+                value={schoolForm.headmasterNip}
+                onChange={(e) => setSchoolForm({ ...schoolForm, headmasterNip: e.target.value })}
+                placeholder="NIP kepala sekolah"
+                maxLength={30}
+              />
+            </Field>
+          </div>
+          <Alert kind={schoolMsg?.kind ?? "error"}>{schoolMsg?.text ?? ""}</Alert>
+          <Button onClick={() => void saveSchool()} disabled={savingSchool}>
+            {savingSchool ? "Menyimpan..." : "Simpan Data Sekolah"}
+          </Button>
+        </Card>
+      )}
 
       <Card title="Ubah Password">
         <Field label="Password saat ini">
