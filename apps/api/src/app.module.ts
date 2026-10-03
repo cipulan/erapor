@@ -23,6 +23,7 @@ import { GradingModule } from "./grading/grading.module";
 import { AssessmentsModule } from "./assessments/assessments.module";
 import { ReportsModule } from "./reports/reports.module";
 import { AuditQueryModule } from "./audit/audit.controller";
+import { DocsModule } from "./docs/docs.module";
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { AuditQueryModule } from "./audit/audit.controller";
     AssessmentsModule,
     ReportsModule,
     AuditQueryModule,
+    DocsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: SessionAuthGuard },

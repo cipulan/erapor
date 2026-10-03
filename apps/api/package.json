@@ -14,9 +14,10 @@
     "pg": "^8.13.1",
     "puppeteer-core": "^23.11.1",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "swagger-ui-dist": "^5.33.1"
   },
-  "description": "eRapor SD \u2014 NestJS backend API",
+  "description": "eRapor SD — NestJS backend API",
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/cookie-parser": "^1.4.8",

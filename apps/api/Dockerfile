@@ -33,6 +33,7 @@ COPY --from=builder /app/package.json /app/package-lock.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/apps/api ./apps/api
+COPY --from=builder /app/docs ./docs
 
 EXPOSE 3001
 # Migrate (idempotent) -> seed baseline (idempotent, upsert) -> jalanin server
