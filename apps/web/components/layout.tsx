@@ -18,7 +18,10 @@ interface NavGroup {
 const NAV: NavGroup[] = [
   {
     title: "Utama",
-    items: [{ href: "/dashboard", label: "Dashboard", roles: ["SUPERADMIN", "TEACHER", "PARENT"] }],
+    items: [
+      { href: "/dashboard", label: "Dashboard", roles: ["SUPERADMIN", "TEACHER", "PARENT"] },
+      { href: "/profil", label: "Profil", roles: ["SUPERADMIN", "TEACHER", "PARENT"] },
+    ],
   },
   {
     title: "Akademik",
@@ -27,6 +30,7 @@ const NAV: NavGroup[] = [
       { href: "/siswa", label: "Siswa", roles: ["SUPERADMIN"] },
       { href: "/wali", label: "Wali", roles: ["SUPERADMIN"] },
       { href: "/kelas", label: "Kelas", roles: ["SUPERADMIN"] },
+      { href: "/pengguna", label: "Pengguna", roles: ["SUPERADMIN"] },
     ],
   },
   {

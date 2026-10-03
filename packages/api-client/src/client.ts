@@ -6,6 +6,7 @@ import type {
   AuditLog,
   AuthMe,
   BulkScoresInput,
+  ChangePasswordInput,
   ClassItem,
   CreateAcademicYearInput,
   CreateAssessmentCategoryInput,
@@ -19,6 +20,8 @@ import type {
   CreateSubjectInput,
   CreateTeacherAssignmentInput,
   CreateTpInput,
+  CreateUserInput,
+  CreateUserResult,
   ErrorBody,
   GenerateReportCardInput,
   GradePreview,
@@ -28,19 +31,27 @@ import type {
   ImportPreview,
   KktpConfiguration,
   LinkGuardianInput,
+  ManageableRole,
+  MessageResult,
   Paginated,
   PromoteClassInput,
   PromotionResult,
   ReplaceWeightsInput,
   ReportCard,
   ReportCardDetail,
+  ResetPasswordInput,
+  ResetPasswordResult,
   Semester,
   Student,
   StudentDetail,
   StudentEnrollment,
   Subject,
   TeacherAssignment,
+  UpdateProfileInput,
   UpsertKktpInput,
+  UserItem,
+  UserProfile,
+  UserSummary,
 } from "./types.js";
 
 /**
@@ -147,6 +158,8 @@ export function createApiClient(options: ClientOptions) {
     request<T>(path, { method: "POST", body: data === undefined ? undefined : JSON.stringify(data) });
   const put = <T>(path: string, data?: unknown) =>
     request<T>(path, { method: "PUT", body: data === undefined ? undefined : JSON.stringify(data) });
+  const patch = <T>(path: string, data?: unknown) =>
+    request<T>(path, { method: "PATCH", body: data === undefined ? undefined : JSON.stringify(data) });
 
   return {
     // ---- Auth ----
@@ -154,6 +167,25 @@ export function createApiClient(options: ClientOptions) {
       post<AuthMe>("/auth/login", { email, password }),
     logout: () => post<void>("/auth/logout"),
     me: () => get<AuthMe>("/auth/me"),
+
+    // ---- Profil sendiri ----
+    profile: {
+      get: () => get<UserProfile>("/profile"),
+      update: (data: UpdateProfileInput) => put<UserProfile>("/profile", data),
+      changePassword: (data: ChangePasswordInput) =>
+        post<MessageResult>("/profile/change-password", data),
+    },
+
+    // ---- Pengguna (khusus SUPERADMIN) ----
+    users: {
+      list: (params: PageParams & { role: ManageableRole; q?: string }) =>
+        get<Paginated<UserItem>>(`/users${buildQuery(params)}`),
+      create: (data: CreateUserInput) => post<CreateUserResult>("/users", data),
+      resetPassword: (id: string, data?: ResetPasswordInput) =>
+        post<ResetPasswordResult>(`/users/${id}/reset-password`, data ?? {}),
+      setActive: (id: string, isActive: boolean) =>
+        patch<UserSummary>(`/users/${id}`, { isActive }),
+    },
 
     // ---- Tahun ajaran & semester ----
     academicYears: {

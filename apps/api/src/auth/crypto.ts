@@ -20,3 +20,19 @@ export function generateSessionToken(): string {
 export function hashSessionToken(token: string): string {
   return createHash("sha256").update(token, "utf8").digest("hex");
 }
+
+/**
+ * Generates a random alphanumeric password. Ambiguous characters
+ * (0/O, 1/l/I) are excluded so it stays readable when shared.
+ * Minimum length 8 to satisfy the password policy.
+ */
+export function generatePassword(length = 12): string {
+  const alphabet = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  const len = Math.max(8, Math.floor(length) || 12);
+  const bytes = randomBytes(len);
+  let out = "";
+  for (let i = 0; i < len; i++) {
+    out += alphabet[bytes[i] % alphabet.length];
+  }
+  return out;
+}

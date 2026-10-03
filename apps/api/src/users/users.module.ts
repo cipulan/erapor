@@ -1,30 +1,14 @@
-import { Injectable, Module } from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
+import { Module } from "@nestjs/common";
+import { ProfileController } from "./profile.controller";
+import { UsersController } from "./users.controller";
+import { UsersService } from "./users.service";
 
 /**
- * Internal user helpers. The OpenAPI contract exposes no /users endpoints;
- * user provisioning happens through the seed script (and future admin UI).
+ * Manajemen akun pengguna. PrismaService, AuditService, dan APP_CONFIG
+ * berasal dari module global sehingga tidak perlu diimpor di sini.
  */
-@Injectable()
-export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
-
-  findByEmail(schoolId: string, email: string) {
-    return this.prisma.user.findFirst({
-      where: { schoolId, email: email.trim().toLowerCase() },
-    });
-  }
-
-  listTeachers(schoolId: string) {
-    return this.prisma.user.findMany({
-      where: { schoolId, role: "TEACHER", isActive: true },
-      orderBy: [{ fullName: "asc" }],
-      select: { id: true, email: true, fullName: true, role: true, isActive: true },
-    });
-  }
-}
-
 @Module({
+  controllers: [ProfileController, UsersController],
   providers: [UsersService],
   exports: [UsersService],
 })

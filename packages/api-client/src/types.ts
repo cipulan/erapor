@@ -16,6 +16,56 @@ export interface AuthMe {
   user: UserSummary;
 }
 
+/* ---------- Profil & manajemen pengguna ---------- */
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  fullName: string;
+  role: UserRole;
+  isActive: boolean;
+  schoolName: string;
+}
+
+export interface UserItem extends UserSummary {
+  lastLoginAt: string | null;
+}
+
+export interface UpdateProfileInput {
+  fullName: string;
+}
+
+export interface ChangePasswordInput {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface MessageResult {
+  message: string;
+}
+
+export type ManageableRole = "TEACHER" | "PARENT";
+
+export interface CreateUserInput {
+  email: string;
+  fullName: string;
+  role: ManageableRole;
+  password?: string;
+}
+
+export interface CreateUserResult {
+  user: UserSummary;
+  generatedPassword?: string;
+}
+
+export interface ResetPasswordInput {
+  newPassword?: string;
+}
+
+export interface ResetPasswordResult {
+  generatedPassword?: string;
+}
+
 export type AcademicYearStatus = "DRAFT" | "ACTIVE" | "ARCHIVED";
 export interface AcademicYear {
   id: string;

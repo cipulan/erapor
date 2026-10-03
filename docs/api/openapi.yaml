@@ -25,6 +25,7 @@ tags:
   - name: Reports
   - name: Promotion
   - name: Audit
+  - name: Users
 
 paths:
   /auth/login:
@@ -59,6 +60,96 @@ paths:
       responses:
         '200': { description: Current user, content: { application/json: { schema: { $ref: '#/components/schemas/AuthMe' } } } }
         '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /profile:
+    get:
+      tags: [Users]
+      operationId: getProfile
+      summary: Profil pengguna yang sedang login
+      responses:
+        '200': { description: Profil pengguna, content: { application/json: { schema: { $ref: '#/components/schemas/UserProfile' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    put:
+      tags: [Users]
+      operationId: updateProfile
+      summary: Ubah nama lengkap sendiri
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/UpdateProfileRequest' } } }
+      responses:
+        '200': { description: Profil diperbarui, content: { application/json: { schema: { $ref: '#/components/schemas/UserProfile' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /profile/change-password:
+    post:
+      tags: [Users]
+      operationId: changePassword
+      summary: Ubah password sendiri (sesi lain dicabut)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ChangePasswordRequest' } } }
+      responses:
+        '200': { description: Password diubah, content: { application/json: { schema: { $ref: '#/components/schemas/MessageResponse' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /users:
+    get:
+      tags: [Users]
+      operationId: listUsers
+      summary: Daftar akun guru/wali (khusus SUPERADMIN)
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { in: query, name: role, required: true, schema: { type: string, enum: [TEACHER, PARENT] } }
+        - { in: query, name: q, schema: { type: string, description: 'Cari nama atau email (contains, case-insensitive)' } }
+      responses:
+        '200': { description: Daftar pengguna, content: { application/json: { schema: { $ref: '#/components/schemas/PaginatedUsers' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    post:
+      tags: [Users]
+      operationId: createUser
+      summary: Buat akun guru/wali (khusus SUPERADMIN)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateUserRequest' } } }
+      responses:
+        '201': { description: Akun dibuat, content: { application/json: { schema: { $ref: '#/components/schemas/CreateUserResponse' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /users/{userId}:
+    patch:
+      tags: [Users]
+      operationId: setUserActive
+      summary: Aktif/nonaktifkan akun (khusus SUPERADMIN)
+      parameters: [{ $ref: '#/components/parameters/UserId' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/SetUserActiveRequest' } } }
+      responses:
+        '200': { description: Status diperbarui, content: { application/json: { schema: { $ref: '#/components/schemas/UserSummary' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /users/{userId}/reset-password:
+    post:
+      tags: [Users]
+      operationId: resetUserPassword
+      summary: Reset password akun (khusus SUPERADMIN, semua sesi dicabut)
+      parameters: [{ $ref: '#/components/parameters/UserId' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ResetPasswordRequest' } } }
+      responses:
+        '200': { description: Password direset, content: { application/json: { schema: { $ref: '#/components/schemas/ResetPasswordResponse' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
 
   /academic-years:
     get:
@@ -558,6 +649,7 @@ components:
     GradingSchemeId: { in: path, name: gradingSchemeId, required: true, schema: { $ref: '#/components/schemas/UUID' } }
     AssessmentId: { in: path, name: assessmentId, required: true, schema: { $ref: '#/components/schemas/UUID' } }
     ReportCardId: { in: path, name: reportCardId, required: true, schema: { $ref: '#/components/schemas/UUID' } }
+    UserId: { in: path, name: userId, required: true, schema: { $ref: '#/components/schemas/UUID' } }
 
   responses:
     Unauthorized: { description: Authentication required, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
@@ -608,6 +700,71 @@ components:
       required: [user]
       properties:
         user: { $ref: '#/components/schemas/UserSummary' }
+
+    UserProfile:
+      type: object
+      required: [id, email, fullName, role, isActive, schoolName]
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        email: { type: string, format: email }
+        fullName: { type: string }
+        role: { $ref: '#/components/schemas/UserRole' }
+        isActive: { type: boolean }
+        schoolName: { type: string }
+    UpdateProfileRequest:
+      type: object
+      required: [fullName]
+      properties:
+        fullName: { type: string, minLength: 3 }
+    ChangePasswordRequest:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword: { type: string }
+        newPassword: { type: string, minLength: 8 }
+    MessageResponse:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+    UserItem:
+      type: object
+      required: [id, email, fullName, role, isActive]
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        email: { type: string, format: email }
+        fullName: { type: string }
+        role: { $ref: '#/components/schemas/UserRole' }
+        isActive: { type: boolean }
+        lastLoginAt: { type: string, format: date-time, nullable: true }
+    PaginatedUsers: { type: object, required: [data, meta], properties: { data: { type: array, items: { $ref: '#/components/schemas/UserItem' } }, meta: { $ref: '#/components/schemas/PaginationMeta' } } }
+    CreateUserRequest:
+      type: object
+      required: [email, fullName, role]
+      properties:
+        email: { type: string, format: email }
+        fullName: { type: string, minLength: 3 }
+        role: { type: string, enum: [TEACHER, PARENT] }
+        password: { type: string, minLength: 8, description: 'Opsional; bila kosong, server generate otomatis' }
+    CreateUserResponse:
+      type: object
+      required: [user]
+      properties:
+        user: { $ref: '#/components/schemas/UserSummary' }
+        generatedPassword: { type: string, description: 'Hanya ada bila password tidak diisi (ditampilkan sekali)' }
+    ResetPasswordRequest:
+      type: object
+      properties:
+        newPassword: { type: string, minLength: 8, description: 'Opsional; bila kosong, server generate otomatis' }
+    ResetPasswordResponse:
+      type: object
+      properties:
+        generatedPassword: { type: string, description: 'Hanya ada bila newPassword tidak diisi (ditampilkan sekali)' }
+    SetUserActiveRequest:
+      type: object
+      required: [isActive]
+      properties:
+        isActive: { type: boolean }
 
     AcademicYear:
       type: object
