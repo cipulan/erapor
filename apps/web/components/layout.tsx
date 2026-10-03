@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import { type UserRole } from "@erapor/api-client";
 import { useAuth } from "./auth";
 
@@ -9,6 +10,8 @@ interface NavItem {
   href: string;
   label: string;
   roles: UserRole[];
+  /** Untuk submenu tab di halaman yang sama (mis. /pengguna?tab=guru). */
+  tab?: "guru" | "wali";
 }
 interface NavGroup {
   title: string;
@@ -24,13 +27,19 @@ const NAV: NavGroup[] = [
     ],
   },
   {
+    title: "Pengguna",
+    items: [
+      { href: "/pengguna", tab: "guru", label: "Guru", roles: ["SUPERADMIN"] },
+      { href: "/pengguna", tab: "wali", label: "Wali", roles: ["SUPERADMIN"] },
+    ],
+  },
+  {
     title: "Akademik",
     items: [
       { href: "/tahun-ajaran", label: "Tahun Ajaran", roles: ["SUPERADMIN"] },
       { href: "/siswa", label: "Siswa", roles: ["SUPERADMIN"] },
-      { href: "/wali", label: "Wali", roles: ["SUPERADMIN"] },
+      { href: "/wali", label: "Wali Siswa", roles: ["SUPERADMIN"] },
       { href: "/kelas", label: "Kelas", roles: ["SUPERADMIN"] },
-      { href: "/pengguna", label: "Pengguna", roles: ["SUPERADMIN"] },
     ],
   },
   {
@@ -71,7 +80,7 @@ const ROLE_LABEL: Record<UserRole, string> = {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
-  const pathname = usePathname();
+  const [navOpen, setNavOpen] = useState(false);
 
   if (!user) return <>{children}</>;
 
@@ -82,22 +91,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="shell">
-      <aside className="sidebar">
+      {navOpen && <div className="backdrop" onClick={() => setNavOpen(false)} aria-hidden="true" />}
+      <aside className={`sidebar${navOpen ? " open" : ""}`}>
         <div className="brand">
           <h1>eRapor SD</h1>
           <small>Sistem Nilai &amp; Rapor</small>
         </div>
         <nav className="nav">
-          {groups.map((g) => (
-            <div key={g.title}>
-              <div className="nav-group">{g.title}</div>
-              {g.items.map((i) => (
-                <Link key={i.href} href={i.href} className={pathname === i.href || pathname.startsWith(i.href + "/") ? "active" : ""}>
-                  {i.label}
-                </Link>
-              ))}
-            </div>
-          ))}
+          <Suspense>
+            <NavLinks groups={groups} onNavigate={() => setNavOpen(false)} />
+          </Suspense>
         </nav>
         <div className="sidebar-foot">
           <div><strong style={{ color: "#fff" }}>{user.fullName}</strong></div>
@@ -112,6 +115,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
       <div className="main">
         <div className="topbar">
+          <button className="hamburger" onClick={() => setNavOpen(true)} aria-label="Buka menu navigasi">
+            ☰
+          </button>
           <div className="who">
             Selamat datang, <strong>{user.fullName}</strong> ({ROLE_LABEL[user.role]})
           </div>
@@ -119,5 +125,37 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="content">{children}</div>
       </div>
     </div>
+  );
+}
+
+/** Daftar link navigasi; dibungkus Suspense karena memakai useSearchParams. */
+function NavLinks({ groups, onNavigate }: { groups: NavGroup[]; onNavigate: () => void }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const activeTab = searchParams.get("tab") ?? "guru";
+
+  return (
+    <>
+      {groups.map((g) => (
+        <div key={g.title}>
+          <div className="nav-group">{g.title}</div>
+          {g.items.map((i) => {
+            const href = i.tab ? `${i.href}?tab=${i.tab}` : i.href;
+            const pathOk = pathname === i.href || pathname.startsWith(i.href + "/");
+            const active = pathOk && (!i.tab || activeTab === i.tab);
+            return (
+              <Link
+                key={`${i.href}:${i.tab ?? i.label}`}
+                href={href}
+                className={active ? "active" : ""}
+                onClick={onNavigate}
+              >
+                {i.label}
+              </Link>
+            );
+          })}
+        </div>
+      ))}
+    </>
   );
 }

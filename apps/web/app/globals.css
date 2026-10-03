@@ -65,7 +65,51 @@ a:hover { text-decoration: underline; }
 .grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
 .grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
 .grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
-@media (max-width: 900px) { .grid.cols-4, .grid.cols-3 { grid-template-columns: repeat(2, 1fr); } .sidebar { display: none; } }
+/* ---------- navigasi mobile (drawer) ---------- */
+.hamburger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--ink);
+  flex-shrink: 0;
+}
+.backdrop { display: none; }
+
+@media (max-width: 900px) {
+  .grid.cols-4, .grid.cols-3 { grid-template-columns: repeat(2, 1fr); }
+  .sidebar {
+    display: flex;
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
+    height: 100dvh;
+    width: 260px;
+    transform: translateX(-105%);
+    transition: transform 0.25s ease;
+    z-index: 60;
+  }
+  .sidebar.open {
+    transform: translateX(0);
+    box-shadow: 12px 0 32px rgba(0, 0, 0, 0.28);
+  }
+  .backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(8, 15, 30, 0.5);
+    z-index: 55;
+  }
+  .hamburger { display: inline-flex; }
+  .topbar { padding: 10px 16px; justify-content: flex-start; gap: 12px; }
+  .content { padding: 16px; }
+}
 .stat { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
 .stat .num { font-size: 26px; font-weight: 700; }
 .stat .lbl { color: var(--muted); font-size: 12.5px; }

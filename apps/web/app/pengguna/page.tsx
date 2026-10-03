@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { ManageableRole, UserItem } from "@erapor/api-client";
 import { api } from "@/lib/api";
 import { errorMessage, formatDateTime } from "@/lib/format";
@@ -23,8 +24,19 @@ function randomPassword(): string {
 }
 
 export default function PenggunaPage() {
+  return (
+    <Suspense fallback={<div className="card"><Spinner /></div>}>
+      <PenggunaInner />
+    </Suspense>
+  );
+}
+
+function PenggunaInner() {
   const { loading: authLoading } = useRequireAuth(["SUPERADMIN"]);
-  const [tab, setTab] = useState<Tab>("TEACHER");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const tabFromUrl: Tab = searchParams.get("tab") === "wali" ? "PARENT" : "TEACHER";
+  const [tab, setTab] = useState<Tab>(tabFromUrl);
   const [rows, setRows] = useState<UserItem[]>([]);
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState({ total: 0, totalPages: 0 });
@@ -49,10 +61,16 @@ export default function PenggunaPage() {
 
   useEffect(() => { void load(tab, q, 1); }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function switchTab(t: Tab) {
-    setTab(t);
+  // Sinkron tab dengan ?tab= di URL (dipakai link submenu navigasi).
+  useEffect(() => {
+    setTab(tabFromUrl);
     setQ("");
     setPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabFromUrl]);
+
+  function switchTab(t: Tab) {
+    router.replace(`/pengguna?tab=${t === "PARENT" ? "wali" : "guru"}`);
   }
 
   // ---------- modal tambah ----------
