@@ -15,6 +15,7 @@ RUN npm ci --no-audit --no-fund
 COPY . .
 RUN npm run db:generate
 RUN npm run build --workspace=@erapor/database
+RUN npm run build:seed --workspace=@erapor/database
 RUN npm run build --workspace=@erapor/api-client
 RUN npm run build --workspace=@erapor/api
 RUN npm prune --omit=dev --no-audit --no-fund
@@ -34,5 +35,5 @@ COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/apps/api ./apps/api
 
 EXPOSE 3001
-# Migrate dulu (idempotent), baru jalanin server
-CMD ["sh", "-c", "npx prisma migrate deploy --config packages/database/prisma/prisma7.config.ts && node apps/api/dist/main.js"]
+# Migrate (idempotent) -> seed baseline (idempotent, upsert) -> jalanin server
+CMD ["sh", "-c", "npx prisma migrate deploy --config packages/database/prisma/prisma7.config.ts && node packages/database/dist/seed.js && node apps/api/dist/main.js"]

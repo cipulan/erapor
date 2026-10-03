@@ -8,7 +8,7 @@
  * defaults documented in .env.example — never hardcoded secrets.
  */
 import "dotenv/config";
-import { PrismaClient } from "../src/generated/prisma/client";
+import { PrismaClient } from "@erapor/database";
 import { PrismaPg } from "@prisma/adapter-pg";
 import bcryptjs from "bcryptjs";
 

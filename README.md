@@ -43,6 +43,7 @@ erapor/
 ```bash
 npm install
 npm run db:generate
+npm run build --workspace=@erapor/database
 npm run db:migrate:dev
 npm run db:seed
 npm run dev:api   # terminal 1 → http://localhost:3001
