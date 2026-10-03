@@ -9,6 +9,8 @@ COPY packages/shared/package.json packages/shared/package.json
 RUN npm ci --no-audit --no-fund
 
 COPY . .
+# api-client main-nya menunjuk ke ./dist, jadi harus di-build dulu
+RUN npm run build --workspace=@erapor/api-client
 RUN npm run build --workspace=@erapor/web
 RUN npm prune --omit=dev --no-audit --no-fund
 
