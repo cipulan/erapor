@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { AcademicYear, ClassItem, Semester, Subject, TeacherAssignment } from "@erapor/api-client";
+import type { AcademicYear, ClassItem, Semester, Subject, TeacherAssignment, UserItem } from "@erapor/api-client";
 import { api } from "@/lib/api";
 import { errorMessage } from "@/lib/format";
 import { useRequireAuth } from "@/components/auth";
@@ -14,6 +14,7 @@ export default function PenugasanPage() {
   const [semesters, setSemesters] = useState<Semester[]>([]);
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [teachers, setTeachers] = useState<UserItem[]>([]);
   const [yearFilter, setYearFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -38,14 +39,16 @@ export default function PenugasanPage() {
     (async () => {
       try {
         const c = api();
-        const [y, cl, sj] = await Promise.all([
+        const [y, cl, sj, tr] = await Promise.all([
           c.academicYears.list({ limit: 50 }),
           c.classes.list({ limit: 100 }),
           c.subjects.list({ limit: 100 }),
+          c.users.list({ role: "TEACHER", limit: 100 }),
         ]);
         setYears(y.data);
         setClasses(cl.data);
         setSubjects(sj.data);
+        setTeachers(tr.data);
         const active = y.data.find((x) => x.status === "ACTIVE");
         const yid = active?.id ?? "";
         setYearFilter(yid);
@@ -119,11 +122,11 @@ export default function PenugasanPage() {
         {loading ? <Spinner /> : rows.length === 0 ? <EmptyState /> : (
           <div className="table-wrap">
             <table className="tbl">
-              <thead><tr><th>Guru (ID)</th><th>Kelas</th><th>Mapel</th><th>Semester</th><th>Status</th></tr></thead>
+              <thead><tr><th>Guru</th><th>Kelas</th><th>Mapel</th><th>Semester</th><th>Status</th></tr></thead>
               <tbody>
                 {rows.map((a) => (
                   <tr key={a.id}>
-                    <td className="small">{a.teacherId.slice(0, 8)}…</td>
+                    <td>{teachers.find((t) => t.id === a.teacherId)?.fullName ?? a.teacherId.slice(0, 8) + "…"}</td>
                     <td>{nameOf(classes, a.classId)}</td>
                     <td>{nameOf(subjects, a.subjectId)}</td>
                     <td>{semesters.find((s) => s.id === a.semesterId)?.name ?? a.semesterId.slice(0, 8) + "…"}</td>
@@ -139,8 +142,11 @@ export default function PenugasanPage() {
       {showForm && (
         <Modal title="Tambah Penugasan" onClose={() => setShowForm(false)}>
           <form onSubmit={onCreate}>
-            <Field label="ID Guru (UUID)" hint="Backend belum menyediakan daftar user; masukkan UUID user guru.">
-              <input type="text" value={form.teacherId} onChange={(e) => setForm({ ...form, teacherId: e.target.value })} placeholder="UUID guru" />
+            <Field label="Guru">
+              <select value={form.teacherId} onChange={(e) => setForm({ ...form, teacherId: e.target.value })}>
+                <option value="">— Pilih guru —</option>
+                {teachers.map((t) => <option key={t.id} value={t.id}>{t.fullName} ({t.email})</option>)}
+              </select>
             </Field>
             <div className="form-row">
               <Field label="Tahun ajaran">
