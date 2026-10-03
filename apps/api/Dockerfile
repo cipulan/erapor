@@ -35,4 +35,4 @@ COPY --from=builder /app/apps/api ./apps/api
 
 EXPOSE 3001
 # Migrate dulu (idempotent), baru jalanin server
-CMD ["sh", "-c", "npx prisma migrate deploy --config packages/database/prisma7.config.ts && node apps/api/dist/main.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy --config packages/database/prisma/prisma7.config.ts && node apps/api/dist/main.js"]
