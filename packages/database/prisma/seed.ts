@@ -128,11 +128,12 @@ async function main() {
   const students = [];
   for (let i = 1; i <= 30; i++) {
     const n = String(i).padStart(2, "0");
+    const nis = `202600${n}`;
     const student = await prisma.student.upsert({
-      where: { schoolId_nis: { schoolId: school.id, nis: `2026${n}01`.slice(0, 10) } },
+      where: { schoolId_nis: { schoolId: school.id, nis } },
       create: {
         schoolId: school.id,
-        nis: `202600${n}`,
+        nis,
         nisn: `006${n}0001`,
         fullName: `Siswa ${n}`,
         gender: i % 2 === 0 ? "FEMALE" : "MALE",
@@ -154,14 +155,16 @@ async function main() {
     students.push(student);
   }
 
-  // Guardian linked to the first student + parent login.
-  const guardian = await prisma.guardian.create({
-    data: {
+  // Guardian linked to the first student + parent login (upsert: userId unique).
+  const guardian = await prisma.guardian.upsert({
+    where: { userId: parentUser.id },
+    create: {
       schoolId: school.id,
       userId: parentUser.id,
       fullName: "Wali Siswa 01",
       phone: "081234567890",
     },
+    update: {},
   });
   await prisma.studentGuardian.upsert({
     where: { studentId_guardianId: { studentId: students[0].id, guardianId: guardian.id } },
