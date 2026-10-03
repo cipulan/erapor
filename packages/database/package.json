@@ -3,12 +3,12 @@
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
     "pg": "^8.23.1",
     "prisma": "^7.10.0"
   },
   "description": "Prisma 7 schema, migrations & seeds untuk Sistem Nilai & Rapor SD",
   "devDependencies": {
-    "dotenv": "^16.4.5",
     "tsx": "^4.20.0",
     "typescript": "^5.6.0"
   },
