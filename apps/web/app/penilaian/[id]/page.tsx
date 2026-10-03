@@ -1,0 +1,226 @@
+"use client";
+
+import { use, useEffect, useState } from "react";
+import type { Assessment, AssessmentScore, ImportPreview, Student } from "@erapor/api-client";
+import { api } from "@/lib/api";
+import { errorMessage, formatDate } from "@/lib/format";
+import { useRequireAuth } from "@/components/auth";
+import { Alert, Badge, Button, Card, Field, PageHeader, Spinner, EmptyState } from "@/components/ui";
+
+export default function AssessmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const { loading: authLoading } = useRequireAuth(["SUPERADMIN", "TEACHER"]);
+  const [assessment, setAssessment] = useState<Assessment | null>(null);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [scores, setScores] = useState<Record<string, AssessmentScore>>({});
+  const [edits, setEdits] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  // import
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<ImportPreview | null>(null);
+  const [importBusy, setImportBusy] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    setError("");
+    try {
+      const a = await api().assessments.get(id);
+      setAssessment(a);
+      const [st, sc] = await Promise.all([
+        api().students.list({ classId: a.classId, limit: 100 }),
+        api().scores.list(id),
+      ]);
+      setStudents(st.data);
+      const map: Record<string, AssessmentScore> = {};
+      const e: Record<string, string> = {};
+      for (const s of sc) {
+        map[s.studentId] = s;
+        e[s.studentId] = String(s.score);
+      }
+      setScores(map);
+      setEdits(e);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { void load(); }, [id]);
+
+  function setEdit(studentId: string, v: string) {
+    setEdits({ ...edits, [studentId]: v });
+  }
+
+  function validateAll(): { ok: boolean; payload: { studentId: string; score: number }[]; bad: string[] } {
+    const max = assessment?.maxScore ?? 0;
+    const payload: { studentId: string; score: number }[] = [];
+    const bad: string[] = [];
+    for (const s of students) {
+      const raw = (edits[s.id] ?? "").trim();
+      if (raw === "") continue; // kosong = tidak diubah / tidak diisi
+      const n = Number(raw.replace(",", "."));
+      if (!Number.isFinite(n) || n < 0 || n > max) {
+        bad.push(s.id);
+      } else {
+        payload.push({ studentId: s.id, score: n });
+      }
+    }
+    return { ok: bad.length === 0, payload, bad };
+  }
+
+  async function onSave() {
+    setError(""); setSuccess("");
+    const { ok, payload, bad } = validateAll();
+    if (!ok) {
+      setError(`Ada ${bad.length} nilai tidak valid. Nilai harus angka 0–${assessment?.maxScore}.`);
+      return;
+    }
+    if (payload.length === 0) { setError("Tidak ada nilai yang diisi."); return; }
+    if (!confirm(`Simpan ${payload.length} nilai?`)) return;
+    setSaving(true);
+    try {
+      await api().scores.replace(id, { scores: payload });
+      setSuccess(`${payload.length} nilai berhasil disimpan.`);
+      await load();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function onPreviewImport() {
+    if (!file) { setError("Pilih file CSV/XLSX dulu."); return; }
+    setImportBusy(true);
+    setError(""); setSuccess(""); setPreview(null);
+    try {
+      const p = await api().scoreImport.preview(id, file);
+      setPreview(p);
+      if (!p.valid) setError("File tidak valid — perbaiki baris yang bermasalah sebelum commit.");
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setImportBusy(false);
+    }
+  }
+
+  async function onCommitImport() {
+    if (!preview) return;
+    if (!confirm(`Commit ${preview.validRows} baris nilai dari file?`)) return;
+    setImportBusy(true);
+    setError(""); setSuccess("");
+    try {
+      const r = await api().scoreImport.commit(id, preview.importId);
+      setSuccess(`${r.importedRows} nilai berhasil diimpor.`);
+      setPreview(null);
+      setFile(null);
+      await load();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setImportBusy(false);
+    }
+  }
+
+  if (authLoading || loading) return <Spinner />;
+
+  const { bad } = validateAll();
+
+  return (
+    <>
+      <PageHeader
+        title={assessment?.title ?? "Assessment"}
+        subtitle={assessment ? `Skor maks ${assessment.maxScore} · ${formatDate(assessment.assessmentDate)}` : undefined}
+        actions={assessment ? <Badge status={assessment.status} /> : undefined}
+      />
+      <Alert kind="error">{error}</Alert>
+      <Alert kind="success">{success}</Alert>
+
+      <Card
+        title="Input nilai (bulk)"
+        actions={<Button onClick={() => void onSave()} disabled={saving}>{saving ? "Menyimpan..." : "Simpan nilai"}</Button>}
+      >
+        {students.length === 0 ? <EmptyState text="Tidak ada siswa di kelas ini." /> : (
+          <div className="table-wrap">
+            <table className="tbl">
+              <thead><tr><th style={{ width: 40 }}>No</th><th>Nama</th><th>NIS</th><th style={{ width: 130 }}>Nilai</th><th style={{ width: 110 }}>Normalisasi</th></tr></thead>
+              <tbody>
+                {students.map((s, i) => {
+                  const invalid = bad.includes(s.id);
+                  const existing = scores[s.id];
+                  return (
+                    <tr key={s.id}>
+                      <td>{i + 1}</td>
+                      <td>{s.fullName}</td>
+                      <td>{s.nis ?? "-"}</td>
+                      <td>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          className={`score-input${invalid ? " invalid" : ""}`}
+                          value={edits[s.id] ?? ""}
+                          onChange={(e) => setEdit(s.id, e.target.value)}
+                          placeholder="—"
+                        />
+                      </td>
+                      <td className="muted small">
+                        {existing ? `${existing.normalizedScore}` : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="small muted mt">
+          Kosongkan bila siswa belum dinilai. Nilai tersimpan bersifat transaksional: bila satu baris invalid, tidak ada yang tersimpan.
+        </p>
+      </Card>
+
+      <Card title="Import CSV/XLSX">
+        <p className="small muted">Dua tahap: upload → preview → commit. File maksimal 10 MB.</p>
+        <div className="toolbar">
+          <Field label="File">
+            <input type="file" accept=".csv,.xlsx,.xls" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+          </Field>
+          <Button variant="secondary" onClick={() => void onPreviewImport()} disabled={importBusy || !file}>
+            {importBusy ? "Memproses..." : "Upload & preview"}
+          </Button>
+        </div>
+
+        {preview && (
+          <>
+            <div className="btn-row" style={{ marginBottom: 12 }}>
+              <span className="badge blue">Total {preview.totalRows}</span>
+              <span className="badge green">Valid {preview.validRows}</span>
+              <span className="badge red">Invalid {preview.invalidRows}</span>
+            </div>
+            {preview.errors.length > 0 && (
+              <div className="table-wrap">
+                <table className="tbl">
+                  <thead><tr><th>Baris</th><th>Kode</th><th>Pesan</th></tr></thead>
+                  <tbody>
+                    {preview.errors.map((e, i) => (
+                      <tr key={i}><td>{e.row}</td><td className="small">{e.code}</td><td>{e.message}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div className="btn-row">
+              <Button variant="success" onClick={() => void onCommitImport()} disabled={importBusy || !preview.valid}>
+                {importBusy ? "Memproses..." : `Commit ${preview.validRows} baris`}
+              </Button>
+            </div>
+          </>
+        )}
+      </Card>
+    </>
+  );
+}

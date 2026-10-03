@@ -1,0 +1,24 @@
+{
+  "description": "Sistem Nilai & Rapor SD \u2014 monorepo (Next.js + NestJS + Prisma 7 + PostgreSQL)",
+  "engines": {
+    "node": ">=20"
+  },
+  "name": "erapor",
+  "private": true,
+  "scripts": {
+    "build": "npm run build --workspace=@erapor/database && npm run build --workspace=@erapor/api-client && npm run build --workspace=@erapor/api && npm run build --workspace=@erapor/web",
+    "db:generate": "npm run generate --workspace=@erapor/database",
+    "db:migrate": "npm run migrate --workspace=@erapor/database",
+    "db:migrate:dev": "npm run migrate:dev --workspace=@erapor/database",
+    "db:seed": "npm run seed --workspace=@erapor/database",
+    "dev:api": "npm run dev --workspace=@erapor/api",
+    "dev:web": "npm run dev --workspace=@erapor/web",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}

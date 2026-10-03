@@ -1,0 +1,1119 @@
+openapi: 3.2.1
+info:
+  title: School Report API
+  version: 1.0.0
+  description: |
+    REST API for the School Report MVP for Indonesian elementary schools.
+    One deployed application belongs to exactly one school. The authenticated
+    session determines school context; clients MUST NOT use schoolId for authorization.
+servers:
+  - url: /api/v1
+security:
+  - sessionCookie: []
+tags:
+  - name: Auth
+  - name: Academic Years
+  - name: Students
+  - name: Guardians
+  - name: Classes
+  - name: Subjects
+  - name: Curriculum
+  - name: Teacher Assignments
+  - name: Assessment Categories
+  - name: Grading
+  - name: Assessments
+  - name: Reports
+  - name: Promotion
+  - name: Audit
+
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      security: []
+      operationId: login
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200': { description: Authenticated, content: { application/json: { schema: { $ref: '#/components/schemas/AuthMe' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      summary: Logout
+      responses:
+        '204': { description: Logged out }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /auth/me:
+    get:
+      tags: [Auth]
+      operationId: getMe
+      summary: Current user
+      responses:
+        '200': { description: Current user, content: { application/json: { schema: { $ref: '#/components/schemas/AuthMe' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /academic-years:
+    get:
+      tags: [Academic Years]
+      operationId: listAcademicYears
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { in: query, name: status, schema: { $ref: '#/components/schemas/AcademicYearStatus' } }
+      responses:
+        '200': { description: Academic years, content: { application/json: { schema: { $ref: '#/components/schemas/PaginatedAcademicYears' } } } }
+    post:
+      tags: [Academic Years]
+      operationId: createAcademicYear
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateAcademicYearRequest' } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/AcademicYear' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /academic-years/{academicYearId}:
+    get:
+      tags: [Academic Years]
+      operationId: getAcademicYear
+      parameters: [{ $ref: '#/components/parameters/AcademicYearId' }]
+      responses:
+        '200': { description: Academic year, content: { application/json: { schema: { $ref: '#/components/schemas/AcademicYear' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /academic-years/{academicYearId}/activate:
+    post:
+      tags: [Academic Years]
+      operationId: activateAcademicYear
+      parameters: [{ $ref: '#/components/parameters/AcademicYearId' }]
+      responses:
+        '200': { description: Activated, content: { application/json: { schema: { $ref: '#/components/schemas/AcademicYear' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /academic-years/{academicYearId}/semesters:
+    get:
+      tags: [Academic Years]
+      operationId: listSemesters
+      parameters: [{ $ref: '#/components/parameters/AcademicYearId' }]
+      responses:
+        '200': { description: Semesters, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Semester' } } } } }
+    post:
+      tags: [Academic Years]
+      operationId: createSemester
+      parameters: [{ $ref: '#/components/parameters/AcademicYearId' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateSemesterRequest' } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Semester' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /students:
+    get:
+      tags: [Students]
+      operationId: listStudents
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { in: query, name: search, schema: { type: string } }
+        - { in: query, name: classId, schema: { $ref: '#/components/schemas/UUID' } }
+        - { in: query, name: academicYearId, schema: { $ref: '#/components/schemas/UUID' } }
+        - { in: query, name: status, schema: { $ref: '#/components/schemas/StudentStatus' } }
+      responses:
+        '200': { description: Students, content: { application/json: { schema: { $ref: '#/components/schemas/PaginatedStudents' } } } }
+    post:
+      tags: [Students]
+      operationId: createStudent
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateStudentRequest' } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Student' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /students/{studentId}:
+    get:
+      tags: [Students]
+      operationId: getStudent
+      parameters: [{ $ref: '#/components/parameters/StudentId' }]
+      responses:
+        '200': { description: Student, content: { application/json: { schema: { $ref: '#/components/schemas/StudentDetail' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /students/{studentId}/enrollments:
+    get:
+      tags: [Students]
+      operationId: listEnrollments
+      parameters: [{ $ref: '#/components/parameters/StudentId' }]
+      responses:
+        '200': { description: Enrollments, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/StudentEnrollment' } } } } }
+    post:
+      tags: [Students]
+      operationId: createEnrollment
+      parameters: [{ $ref: '#/components/parameters/StudentId' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateEnrollmentRequest' } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/StudentEnrollment' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /students/{studentId}/guardians:
+    get:
+      tags: [Guardians]
+      operationId: listStudentGuardians
+      parameters: [{ $ref: '#/components/parameters/StudentId' }]
+      responses:
+        '200': { description: Guardians, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Guardian' } } } } }
+    post:
+      tags: [Guardians]
+      operationId: linkGuardian
+      parameters: [{ $ref: '#/components/parameters/StudentId' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/LinkGuardianRequest' } } }
+      responses:
+        '201': { description: Linked, content: { application/json: { schema: { $ref: '#/components/schemas/Guardian' } } } }
+
+  /guardians:
+    get:
+      tags: [Guardians]
+      operationId: listGuardians
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { in: query, name: search, schema: { type: string } }
+      responses:
+        '200': { description: Guardians, content: { application/json: { schema: { $ref: '#/components/schemas/PaginatedGuardians' } } } }
+    post:
+      tags: [Guardians]
+      operationId: createGuardian
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateGuardianRequest' } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Guardian' } } } }
+
+  /classes:
+    get:
+      tags: [Classes]
+      operationId: listClasses
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { in: query, name: academicYearId, schema: { $ref: '#/components/schemas/UUID' } }
+      responses:
+        '200': { description: Classes, content: { application/json: { schema: { $ref: '#/components/schemas/PaginatedClasses' } } } }
+    post:
+      tags: [Classes]
+      operationId: createClass
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateClassRequest' } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Class' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /subjects:
+    get:
+      tags: [Subjects]
+      operationId: listSubjects
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { in: query, name: active, schema: { type: boolean } }
+      responses:
+        '200': { description: Subjects, content: { application/json: { schema: { $ref: '#/components/schemas/PaginatedSubjects' } } } }
+    post:
+      tags: [Subjects]
+      operationId: createSubject
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateSubjectRequest' } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Subject' } } } }
+
+  /subjects/{subjectId}/cp:
+    post:
+      tags: [Curriculum]
+      operationId: createCp
+      parameters: [{ $ref: '#/components/parameters/SubjectId' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateCpRequest' } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/CurriculumOutcome' } } } }
+  /cp/{cpId}/tp:
+    post:
+      tags: [Curriculum]
+      operationId: createTp
+      parameters: [{ $ref: '#/components/parameters/CpId' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateTpRequest' } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/LearningObjective' } } } }
+
+  /teacher-assignments:
+    get:
+      tags: [Teacher Assignments]
+      operationId: listTeacherAssignments
+      parameters:
+        - { in: query, name: academicYearId, schema: { $ref: '#/components/schemas/UUID' } }
+        - { in: query, name: semesterId, schema: { $ref: '#/components/schemas/UUID' } }
+        - { in: query, name: classId, schema: { $ref: '#/components/schemas/UUID' } }
+        - { in: query, name: subjectId, schema: { $ref: '#/components/schemas/UUID' } }
+        - { in: query, name: teacherId, schema: { $ref: '#/components/schemas/UUID' } }
+      responses:
+        '200': { description: Assignments, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/TeacherAssignment' } } } } }
+    post:
+      tags: [Teacher Assignments]
+      operationId: createTeacherAssignment
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateTeacherAssignmentRequest' } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/TeacherAssignment' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /assessment-categories:
+    get:
+      tags: [Assessment Categories]
+      operationId: listAssessmentCategories
+      parameters:
+        - { in: query, name: active, schema: { type: boolean } }
+      responses:
+        '200': { description: Categories, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/AssessmentCategory' } } } } }
+    post:
+      tags: [Assessment Categories]
+      operationId: createAssessmentCategory
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateAssessmentCategoryRequest' } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/AssessmentCategory' } } } }
+
+  /grading-schemes:
+    get:
+      tags: [Grading]
+      operationId: listGradingSchemes
+      parameters:
+        - { in: query, name: academicYearId, schema: { $ref: '#/components/schemas/UUID' } }
+        - { in: query, name: semesterId, schema: { $ref: '#/components/schemas/UUID' } }
+      responses:
+        '200': { description: Grading schemes, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/GradingScheme' } } } } }
+    post:
+      tags: [Grading]
+      operationId: createGradingScheme
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateGradingSchemeRequest' } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/GradingScheme' } } } }
+  /grading-schemes/{gradingSchemeId}/weights:
+    put:
+      tags: [Grading]
+      operationId: replaceGradingWeights
+      parameters: [{ $ref: '#/components/parameters/GradingSchemeId' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ReplaceWeightsRequest' } } }
+      responses:
+        '200': { description: Updated, content: { application/json: { schema: { $ref: '#/components/schemas/GradingScheme' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /grading-schemes/{gradingSchemeId}/publish:
+    post:
+      tags: [Grading]
+      operationId: publishGradingScheme
+      parameters: [{ $ref: '#/components/parameters/GradingSchemeId' }]
+      responses:
+        '200': { description: Published, content: { application/json: { schema: { $ref: '#/components/schemas/GradingScheme' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /assessments:
+    get:
+      tags: [Assessments]
+      operationId: listAssessments
+      parameters:
+        - { in: query, name: semesterId, schema: { $ref: '#/components/schemas/UUID' } }
+        - { in: query, name: classId, schema: { $ref: '#/components/schemas/UUID' } }
+        - { in: query, name: subjectId, schema: { $ref: '#/components/schemas/UUID' } }
+        - { in: query, name: categoryId, schema: { $ref: '#/components/schemas/UUID' } }
+        - { in: query, name: status, schema: { $ref: '#/components/schemas/AssessmentStatus' } }
+      responses:
+        '200': { description: Assessments, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Assessment' } } } } }
+    post:
+      tags: [Assessments]
+      operationId: createAssessment
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateAssessmentRequest' } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Assessment' } } } }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /assessments/{assessmentId}:
+    get:
+      tags: [Assessments]
+      operationId: getAssessment
+      parameters: [{ $ref: '#/components/parameters/AssessmentId' }]
+      responses:
+        '200': { description: Assessment, content: { application/json: { schema: { $ref: '#/components/schemas/AssessmentDetail' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /assessments/{assessmentId}/scores:
+    get:
+      tags: [Assessments]
+      operationId: getScores
+      parameters: [{ $ref: '#/components/parameters/AssessmentId' }]
+      responses:
+        '200': { description: Scores, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/AssessmentScore' } } } } }
+    put:
+      tags: [Assessments]
+      operationId: replaceScores
+      parameters: [{ $ref: '#/components/parameters/AssessmentId' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/BulkScoresRequest' } } }
+      responses:
+        '200': { description: Saved transactionally, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/AssessmentScore' } } } } }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /assessments/{assessmentId}/scores/import:
+    post:
+      tags: [Assessments]
+      operationId: previewScoreImport
+      parameters: [{ $ref: '#/components/parameters/AssessmentId' }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        '200': { description: Preview, content: { application/json: { schema: { $ref: '#/components/schemas/ImportPreview' } } } }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /assessments/{assessmentId}/scores/import/commit:
+    post:
+      tags: [Assessments]
+      operationId: commitScoreImport
+      parameters: [{ $ref: '#/components/parameters/AssessmentId' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ImportCommitRequest' } } }
+      responses:
+        '200': { description: Imported, content: { application/json: { schema: { $ref: '#/components/schemas/ImportCommitResult' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /grading/students/{studentId}:
+    get:
+      tags: [Grading]
+      operationId: previewStudentGrade
+      parameters:
+        - { $ref: '#/components/parameters/StudentId' }
+        - { in: query, name: academicYearId, required: true, schema: { $ref: '#/components/schemas/UUID' } }
+        - { in: query, name: semesterId, required: true, schema: { $ref: '#/components/schemas/UUID' } }
+        - { in: query, name: subjectId, required: true, schema: { $ref: '#/components/schemas/UUID' } }
+      responses:
+        '200': { description: Grade preview, content: { application/json: { schema: { $ref: '#/components/schemas/GradePreview' } } } }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /kktp-configurations:
+    get:
+      tags: [Grading]
+      operationId: listKktp
+      parameters:
+        - { in: query, name: academicYearId, schema: { $ref: '#/components/schemas/UUID' } }
+        - { in: query, name: semesterId, schema: { $ref: '#/components/schemas/UUID' } }
+        - { in: query, name: subjectId, schema: { $ref: '#/components/schemas/UUID' } }
+      responses:
+        '200': { description: KKTP configurations, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/KktpConfiguration' } } } } }
+    post:
+      tags: [Grading]
+      operationId: upsertKktp
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/UpsertKktpRequest' } } }
+      responses:
+        '200': { description: Saved, content: { application/json: { schema: { $ref: '#/components/schemas/KktpConfiguration' } } } }
+
+  /report-cards:
+    get:
+      tags: [Reports]
+      operationId: listReportCards
+      parameters:
+        - { in: query, name: academicYearId, schema: { $ref: '#/components/schemas/UUID' } }
+        - { in: query, name: semesterId, schema: { $ref: '#/components/schemas/UUID' } }
+        - { in: query, name: classId, schema: { $ref: '#/components/schemas/UUID' } }
+        - { in: query, name: studentId, schema: { $ref: '#/components/schemas/UUID' } }
+        - { in: query, name: status, schema: { $ref: '#/components/schemas/ReportCardStatus' } }
+      responses:
+        '200': { description: Reports, content: { application/json: { schema: { $ref: '#/components/schemas/PaginatedReportCards' } } } }
+  /report-cards/generate:
+    post:
+      tags: [Reports]
+      operationId: generateReportCard
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/GenerateReportCardRequest' } } }
+      responses:
+        '201': { description: Generated snapshot, content: { application/json: { schema: { $ref: '#/components/schemas/ReportCardDetail' } } } }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /report-cards/{reportCardId}:
+    get:
+      tags: [Reports]
+      operationId: getReportCard
+      parameters: [{ $ref: '#/components/parameters/ReportCardId' }]
+      responses:
+        '200': { description: Report card, content: { application/json: { schema: { $ref: '#/components/schemas/ReportCardDetail' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /report-cards/{reportCardId}/review:
+    post:
+      tags: [Reports]
+      operationId: reviewReportCard
+      parameters: [{ $ref: '#/components/parameters/ReportCardId' }]
+      responses:
+        '200': { description: Reviewed, content: { application/json: { schema: { $ref: '#/components/schemas/ReportCardDetail' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /report-cards/{reportCardId}/lock:
+    post:
+      tags: [Reports]
+      operationId: lockReportCard
+      parameters: [{ $ref: '#/components/parameters/ReportCardId' }]
+      responses:
+        '200': { description: Locked, content: { application/json: { schema: { $ref: '#/components/schemas/ReportCardDetail' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /report-cards/{reportCardId}/publish:
+    post:
+      tags: [Reports]
+      operationId: publishReportCard
+      parameters: [{ $ref: '#/components/parameters/ReportCardId' }]
+      responses:
+        '200': { description: Published, content: { application/json: { schema: { $ref: '#/components/schemas/ReportCardDetail' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /report-cards/{reportCardId}/revision:
+    post:
+      tags: [Reports]
+      operationId: createReportRevision
+      parameters: [{ $ref: '#/components/parameters/ReportCardId' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateRevisionRequest' } } }
+      responses:
+        '201': { description: New revision, content: { application/json: { schema: { $ref: '#/components/schemas/ReportCardDetail' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /report-cards/{reportCardId}/pdf:
+    get:
+      tags: [Reports]
+      operationId: downloadReportPdf
+      parameters: [{ $ref: '#/components/parameters/ReportCardId' }]
+      responses:
+        '200':
+          description: PDF
+          content: { application/pdf: { schema: { type: string, format: binary } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /classes/{classId}/promote:
+    post:
+      tags: [Promotion]
+      operationId: promoteClass
+      parameters: [{ $ref: '#/components/parameters/ClassId' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/PromoteClassRequest' } } }
+      responses:
+        '200': { description: Promotion result, content: { application/json: { schema: { $ref: '#/components/schemas/PromotionResult' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /audit-logs:
+    get:
+      tags: [Audit]
+      operationId: listAuditLogs
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { in: query, name: entityType, schema: { type: string } }
+        - { in: query, name: entityId, schema: { $ref: '#/components/schemas/UUID' } }
+        - { in: query, name: action, schema: { type: string } }
+      responses:
+        '200': { description: Audit logs, content: { application/json: { schema: { $ref: '#/components/schemas/PaginatedAuditLogs' } } } }
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: school_report_session
+
+  parameters:
+    Page: { in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }
+    Limit: { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+    AcademicYearId: { in: path, name: academicYearId, required: true, schema: { $ref: '#/components/schemas/UUID' } }
+    StudentId: { in: path, name: studentId, required: true, schema: { $ref: '#/components/schemas/UUID' } }
+    ClassId: { in: path, name: classId, required: true, schema: { $ref: '#/components/schemas/UUID' } }
+    SubjectId: { in: path, name: subjectId, required: true, schema: { $ref: '#/components/schemas/UUID' } }
+    CpId: { in: path, name: cpId, required: true, schema: { $ref: '#/components/schemas/UUID' } }
+    GradingSchemeId: { in: path, name: gradingSchemeId, required: true, schema: { $ref: '#/components/schemas/UUID' } }
+    AssessmentId: { in: path, name: assessmentId, required: true, schema: { $ref: '#/components/schemas/UUID' } }
+    ReportCardId: { in: path, name: reportCardId, required: true, schema: { $ref: '#/components/schemas/UUID' } }
+
+  responses:
+    Unauthorized: { description: Authentication required, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+    Forbidden: { description: Not authorized, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+    NotFound: { description: Not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+    Conflict: { description: Domain conflict, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+    ValidationError: { description: Validation/domain error, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+    RateLimited: { description: Too many requests, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+
+  schemas:
+    UUID: { type: string, format: uuid }
+    Date: { type: string, format: date }
+    DateTime: { type: string, format: date-time }
+
+    UserRole: { type: string, enum: [SUPERADMIN, TEACHER, PARENT] }
+    AcademicYearStatus: { type: string, enum: [DRAFT, ACTIVE, ARCHIVED] }
+    SemesterCode: { type: string, enum: [ODD, EVEN] }
+    SemesterStatus: { type: string, enum: [DRAFT, ACTIVE, CLOSED] }
+    StudentStatus: { type: string, enum: [ACTIVE, GRADUATED, TRANSFERRED, INACTIVE] }
+    Gender: { type: string, enum: [MALE, FEMALE] }
+    EnrollmentStatus: { type: string, enum: [ACTIVE, COMPLETED, CANCELLED] }
+    EnrollmentType: { type: string, enum: [NEW, PROMOTED, REPEATED, TRANSFERRED] }
+    SubjectType: { type: string, enum: [MANDATORY, ADDITIONAL, LOCAL] }
+    AssignmentStatus: { type: string, enum: [ACTIVE, INACTIVE] }
+    GradingSchemeStatus: { type: string, enum: [DRAFT, PUBLISHED, ARCHIVED] }
+    AssessmentStatus: { type: string, enum: [DRAFT, PUBLISHED, CLOSED] }
+    ReportCardStatus: { type: string, enum: [DRAFT, REVIEW, LOCKED, PUBLISHED, REVISION] }
+    AchievementStatus: { type: string, enum: [ACHIEVED, NOT_ACHIEVED, NOT_ASSESSED] }
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, format: password, minLength: 8 }
+
+    UserSummary:
+      type: object
+      required: [id, email, fullName, role, isActive]
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        email: { type: string, format: email }
+        fullName: { type: string }
+        role: { $ref: '#/components/schemas/UserRole' }
+        isActive: { type: boolean }
+    AuthMe:
+      type: object
+      required: [user]
+      properties:
+        user: { $ref: '#/components/schemas/UserSummary' }
+
+    AcademicYear:
+      type: object
+      required: [id, name, startDate, endDate, status]
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        name: { type: string, example: 2026/2027 }
+        startDate: { $ref: '#/components/schemas/Date' }
+        endDate: { $ref: '#/components/schemas/Date' }
+        status: { $ref: '#/components/schemas/AcademicYearStatus' }
+    CreateAcademicYearRequest:
+      type: object
+      required: [name, startDate, endDate]
+      properties:
+        name: { type: string }
+        startDate: { $ref: '#/components/schemas/Date' }
+        endDate: { $ref: '#/components/schemas/Date' }
+
+    Semester:
+      type: object
+      required: [id, academicYearId, code, name, status]
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        academicYearId: { $ref: '#/components/schemas/UUID' }
+        code: { $ref: '#/components/schemas/SemesterCode' }
+        name: { type: string }
+        startDate: { allOf: [{ $ref: '#/components/schemas/Date' }], nullable: true }
+        endDate: { allOf: [{ $ref: '#/components/schemas/Date' }], nullable: true }
+        status: { $ref: '#/components/schemas/SemesterStatus' }
+    CreateSemesterRequest:
+      type: object
+      required: [code, name]
+      properties:
+        code: { $ref: '#/components/schemas/SemesterCode' }
+        name: { type: string }
+        startDate: { $ref: '#/components/schemas/Date' }
+        endDate: { $ref: '#/components/schemas/Date' }
+
+    Student:
+      type: object
+      required: [id, fullName, status]
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        nis: { type: string, nullable: true }
+        nisn: { type: string, nullable: true }
+        fullName: { type: string }
+        gender: { allOf: [{ $ref: '#/components/schemas/Gender' }], nullable: true }
+        birthPlace: { type: string, nullable: true }
+        birthDate: { allOf: [{ $ref: '#/components/schemas/Date' }], nullable: true }
+        status: { $ref: '#/components/schemas/StudentStatus' }
+    CreateStudentRequest:
+      type: object
+      required: [fullName]
+      properties:
+        nis: { type: string }
+        nisn: { type: string }
+        fullName: { type: string, minLength: 1 }
+        gender: { $ref: '#/components/schemas/Gender' }
+        birthPlace: { type: string }
+        birthDate: { $ref: '#/components/schemas/Date' }
+    StudentDetail:
+      allOf:
+        - $ref: '#/components/schemas/Student'
+        - type: object
+          properties:
+            enrollments:
+              type: array
+              items: { $ref: '#/components/schemas/StudentEnrollment' }
+    StudentEnrollment:
+      type: object
+      required: [id, studentId, academicYearId, classId, status, enrollmentType]
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        studentId: { $ref: '#/components/schemas/UUID' }
+        academicYearId: { $ref: '#/components/schemas/UUID' }
+        classId: { $ref: '#/components/schemas/UUID' }
+        status: { $ref: '#/components/schemas/EnrollmentStatus' }
+        enrollmentType: { $ref: '#/components/schemas/EnrollmentType' }
+        enrolledAt: { $ref: '#/components/schemas/DateTime' }
+        completedAt: { allOf: [{ $ref: '#/components/schemas/DateTime' }], nullable: true }
+    CreateEnrollmentRequest:
+      type: object
+      required: [academicYearId, classId, enrollmentType]
+      properties:
+        academicYearId: { $ref: '#/components/schemas/UUID' }
+        classId: { $ref: '#/components/schemas/UUID' }
+        enrollmentType: { $ref: '#/components/schemas/EnrollmentType' }
+
+    Guardian:
+      type: object
+      required: [id, fullName]
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        userId: { allOf: [{ $ref: '#/components/schemas/UUID' }], nullable: true }
+        fullName: { type: string }
+        phone: { type: string, nullable: true }
+        email: { type: string, format: email, nullable: true }
+        address: { type: string, nullable: true }
+    CreateGuardianRequest:
+      type: object
+      required: [fullName]
+      properties:
+        fullName: { type: string }
+        phone: { type: string }
+        email: { type: string, format: email }
+        address: { type: string }
+    LinkGuardianRequest:
+      type: object
+      required: [guardianId]
+      properties:
+        guardianId: { $ref: '#/components/schemas/UUID' }
+        isPrimary: { type: boolean, default: false }
+
+    Class:
+      type: object
+      required: [id, academicYearId, name, gradeLevel]
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        academicYearId: { $ref: '#/components/schemas/UUID' }
+        name: { type: string }
+        gradeLevel: { type: integer, minimum: 1, maximum: 6 }
+        homeroomTeacherId: { allOf: [{ $ref: '#/components/schemas/UUID' }], nullable: true }
+    CreateClassRequest:
+      type: object
+      required: [academicYearId, name, gradeLevel]
+      properties:
+        academicYearId: { $ref: '#/components/schemas/UUID' }
+        name: { type: string }
+        gradeLevel: { type: integer, minimum: 1, maximum: 6 }
+        homeroomTeacherId: { $ref: '#/components/schemas/UUID' }
+
+    Subject:
+      type: object
+      required: [id, code, name, subjectType, isActive]
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        code: { type: string }
+        name: { type: string }
+        subjectType: { $ref: '#/components/schemas/SubjectType' }
+        isActive: { type: boolean }
+    CreateSubjectRequest:
+      type: object
+      required: [code, name, subjectType]
+      properties:
+        code: { type: string }
+        name: { type: string }
+        subjectType: { $ref: '#/components/schemas/SubjectType' }
+    CurriculumOutcome:
+      type: object
+      required: [id, subjectId, code, description, isActive]
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        subjectId: { $ref: '#/components/schemas/UUID' }
+        code: { type: string }
+        description: { type: string }
+        isActive: { type: boolean }
+    CreateCpRequest:
+      type: object
+      required: [code, description]
+      properties:
+        code: { type: string }
+        description: { type: string }
+    LearningObjective:
+      type: object
+      required: [id, cpId, code, description, isActive]
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        cpId: { $ref: '#/components/schemas/UUID' }
+        code: { type: string }
+        description: { type: string }
+        isActive: { type: boolean }
+    CreateTpRequest:
+      type: object
+      required: [code, description]
+      properties:
+        code: { type: string }
+        description: { type: string }
+
+    TeacherAssignment:
+      type: object
+      required: [id, teacherId, academicYearId, semesterId, classId, subjectId, status]
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        teacherId: { $ref: '#/components/schemas/UUID' }
+        academicYearId: { $ref: '#/components/schemas/UUID' }
+        semesterId: { $ref: '#/components/schemas/UUID' }
+        classId: { $ref: '#/components/schemas/UUID' }
+        subjectId: { $ref: '#/components/schemas/UUID' }
+        status: { $ref: '#/components/schemas/AssignmentStatus' }
+    CreateTeacherAssignmentRequest:
+      type: object
+      required: [teacherId, academicYearId, semesterId, classId, subjectId]
+      properties:
+        teacherId: { $ref: '#/components/schemas/UUID' }
+        academicYearId: { $ref: '#/components/schemas/UUID' }
+        semesterId: { $ref: '#/components/schemas/UUID' }
+        classId: { $ref: '#/components/schemas/UUID' }
+        subjectId: { $ref: '#/components/schemas/UUID' }
+
+    AssessmentCategory:
+      type: object
+      required: [id, name, isActive]
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        isActive: { type: boolean }
+    CreateAssessmentCategoryRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        description: { type: string }
+
+    GradingSchemeWeight:
+      type: object
+      required: [id, categoryId, weight]
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        categoryId: { $ref: '#/components/schemas/UUID' }
+        weight: { type: number, minimum: 0, maximum: 100 }
+    GradingScheme:
+      type: object
+      required: [id, academicYearId, semesterId, status, weights]
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        academicYearId: { $ref: '#/components/schemas/UUID' }
+        semesterId: { $ref: '#/components/schemas/UUID' }
+        status: { $ref: '#/components/schemas/GradingSchemeStatus' }
+        publishedAt: { allOf: [{ $ref: '#/components/schemas/DateTime' }], nullable: true }
+        weights: { type: array, items: { $ref: '#/components/schemas/GradingSchemeWeight' } }
+    CreateGradingSchemeRequest:
+      type: object
+      required: [academicYearId, semesterId]
+      properties:
+        academicYearId: { $ref: '#/components/schemas/UUID' }
+        semesterId: { $ref: '#/components/schemas/UUID' }
+    ReplaceWeightsRequest:
+      type: object
+      required: [weights]
+      properties:
+        weights:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [categoryId, weight]
+            properties:
+              categoryId: { $ref: '#/components/schemas/UUID' }
+              weight: { type: number, minimum: 0, maximum: 100 }
+      description: Total weight MUST equal exactly 100.00 before publishing.
+
+    Assessment:
+      type: object
+      required: [id, teacherAssignmentId, semesterId, classId, subjectId, categoryId, title, maxScore, status]
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        teacherAssignmentId: { $ref: '#/components/schemas/UUID' }
+        semesterId: { $ref: '#/components/schemas/UUID' }
+        classId: { $ref: '#/components/schemas/UUID' }
+        subjectId: { $ref: '#/components/schemas/UUID' }
+        categoryId: { $ref: '#/components/schemas/UUID' }
+        title: { type: string }
+        description: { type: string, nullable: true }
+        assessmentDate: { allOf: [{ $ref: '#/components/schemas/Date' }], nullable: true }
+        maxScore: { type: number, exclusiveMinimum: 0 }
+        status: { $ref: '#/components/schemas/AssessmentStatus' }
+    CreateAssessmentRequest:
+      type: object
+      required: [teacherAssignmentId, semesterId, classId, subjectId, categoryId, title, maxScore]
+      properties:
+        teacherAssignmentId: { $ref: '#/components/schemas/UUID' }
+        semesterId: { $ref: '#/components/schemas/UUID' }
+        classId: { $ref: '#/components/schemas/UUID' }
+        subjectId: { $ref: '#/components/schemas/UUID' }
+        categoryId: { $ref: '#/components/schemas/UUID' }
+        title: { type: string, minLength: 1 }
+        description: { type: string }
+        assessmentDate: { $ref: '#/components/schemas/Date' }
+        maxScore: { type: number, exclusiveMinimum: 0 }
+    AssessmentScore:
+      type: object
+      required: [id, assessmentId, studentId, score, normalizedScore]
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        assessmentId: { $ref: '#/components/schemas/UUID' }
+        studentId: { $ref: '#/components/schemas/UUID' }
+        score: { type: number, minimum: 0 }
+        normalizedScore: { type: number, minimum: 0, maximum: 100 }
+        note: { type: string, nullable: true }
+    AssessmentDetail:
+      allOf:
+        - $ref: '#/components/schemas/Assessment'
+        - type: object
+          properties:
+            scores: { type: array, items: { $ref: '#/components/schemas/AssessmentScore' } }
+    BulkScoresRequest:
+      type: object
+      required: [scores]
+      properties:
+        scores:
+          type: array
+          items:
+            type: object
+            required: [studentId, score]
+            properties:
+              studentId: { $ref: '#/components/schemas/UUID' }
+              score: { type: number, minimum: 0 }
+              note: { type: string }
+
+    ImportPreview:
+      type: object
+      required: [importId, valid, totalRows, validRows, invalidRows, errors]
+      properties:
+        importId: { $ref: '#/components/schemas/UUID' }
+        valid: { type: boolean }
+        totalRows: { type: integer, minimum: 0 }
+        validRows: { type: integer, minimum: 0 }
+        invalidRows: { type: integer, minimum: 0 }
+        errors: { type: array, items: { $ref: '#/components/schemas/ImportRowError' } }
+    ImportRowError:
+      type: object
+      required: [row, code, message]
+      properties:
+        row: { type: integer, minimum: 1 }
+        code: { type: string }
+        message: { type: string }
+    ImportCommitRequest:
+      type: object
+      required: [importId]
+      properties:
+        importId: { $ref: '#/components/schemas/UUID' }
+    ImportCommitResult:
+      type: object
+      required: [importId, importedRows]
+      properties:
+        importId: { $ref: '#/components/schemas/UUID' }
+        importedRows: { type: integer, minimum: 0 }
+
+    GradePreview:
+      type: object
+      required: [studentId, academicYearId, semesterId, subjectId, status]
+      properties:
+        studentId: { $ref: '#/components/schemas/UUID' }
+        academicYearId: { $ref: '#/components/schemas/UUID' }
+        semesterId: { $ref: '#/components/schemas/UUID' }
+        subjectId: { $ref: '#/components/schemas/UUID' }
+        status: { type: string, enum: [COMPLETE, INCOMPLETE] }
+        categoryAverages:
+          type: array
+          items:
+            type: object
+            required: [categoryId, average, weight, weightedValue]
+            properties:
+              categoryId: { $ref: '#/components/schemas/UUID' }
+              average: { type: number, minimum: 0, maximum: 100 }
+              weight: { type: number, minimum: 0, maximum: 100 }
+              weightedValue: { type: number, minimum: 0, maximum: 100 }
+        finalScore: { type: number, minimum: 0, maximum: 100, nullable: true }
+        kktpThreshold: { type: number, minimum: 0, maximum: 100, nullable: true }
+        achievement: { allOf: [{ $ref: '#/components/schemas/AchievementStatus' }], nullable: true }
+        missingAssessments: { type: array, items: { $ref: '#/components/schemas/UUID' } }
+
+    KktpConfiguration:
+      type: object
+      required: [id, academicYearId, semesterId, subjectId, threshold]
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        academicYearId: { $ref: '#/components/schemas/UUID' }
+        semesterId: { $ref: '#/components/schemas/UUID' }
+        subjectId: { $ref: '#/components/schemas/UUID' }
+        threshold: { type: number, minimum: 0, maximum: 100 }
+        description: { type: string, nullable: true }
+    UpsertKktpRequest:
+      type: object
+      required: [academicYearId, semesterId, subjectId, threshold]
+      properties:
+        academicYearId: { $ref: '#/components/schemas/UUID' }
+        semesterId: { $ref: '#/components/schemas/UUID' }
+        subjectId: { $ref: '#/components/schemas/UUID' }
+        threshold: { type: number, minimum: 0, maximum: 100 }
+        description: { type: string }
+
+    ReportCardSubject:
+      type: object
+      required: [id, reportCardId, subjectId, subjectName, finalScore, achievement]
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        reportCardId: { $ref: '#/components/schemas/UUID' }
+        subjectId: { $ref: '#/components/schemas/UUID' }
+        subjectName: { type: string }
+        finalScore: { type: number, minimum: 0, maximum: 100 }
+        kktpThreshold: { type: number, minimum: 0, maximum: 100, nullable: true }
+        achievement: { $ref: '#/components/schemas/AchievementStatus' }
+        description: { type: string, nullable: true }
+        snapshotJson: { type: object, additionalProperties: true, nullable: true }
+    ReportCard:
+      type: object
+      required: [id, studentId, academicYearId, semesterId, classId, version, status]
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        studentId: { $ref: '#/components/schemas/UUID' }
+        academicYearId: { $ref: '#/components/schemas/UUID' }
+        semesterId: { $ref: '#/components/schemas/UUID' }
+        classId: { $ref: '#/components/schemas/UUID' }
+        version: { type: integer, minimum: 1 }
+        status: { $ref: '#/components/schemas/ReportCardStatus' }
+        generatedAt: { allOf: [{ $ref: '#/components/schemas/DateTime' }], nullable: true }
+        reviewedAt: { allOf: [{ $ref: '#/components/schemas/DateTime' }], nullable: true }
+        lockedAt: { allOf: [{ $ref: '#/components/schemas/DateTime' }], nullable: true }
+        publishedAt: { allOf: [{ $ref: '#/components/schemas/DateTime' }], nullable: true }
+    ReportCardDetail:
+      allOf:
+        - $ref: '#/components/schemas/ReportCard'
+        - type: object
+          required: [subjects]
+          properties:
+            subjects: { type: array, items: { $ref: '#/components/schemas/ReportCardSubject' } }
+    GenerateReportCardRequest:
+      type: object
+      required: [studentId, academicYearId, semesterId]
+      properties:
+        studentId: { $ref: '#/components/schemas/UUID' }
+        academicYearId: { $ref: '#/components/schemas/UUID' }
+        semesterId: { $ref: '#/components/schemas/UUID' }
+    CreateRevisionRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 1 }
+
+    PromoteClassRequest:
+      type: object
+      required: [targetAcademicYearId, targetClassId]
+      properties:
+        targetAcademicYearId: { $ref: '#/components/schemas/UUID' }
+        targetClassId: { $ref: '#/components/schemas/UUID' }
+        studentIds: { type: array, items: { $ref: '#/components/schemas/UUID' } }
+        enrollmentType: { type: string, enum: [PROMOTED, REPEATED], default: PROMOTED }
+    PromotionResult:
+      type: object
+      required: [sourceClassId, targetClassId, created, skipped, errors]
+      properties:
+        sourceClassId: { $ref: '#/components/schemas/UUID' }
+        targetClassId: { $ref: '#/components/schemas/UUID' }
+        created: { type: integer, minimum: 0 }
+        skipped: { type: integer, minimum: 0 }
+        errors: { type: array, items: { type: object, additionalProperties: true } }
+
+    AuditLog:
+      type: object
+      required: [id, action, entityType, createdAt]
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        actorUserId: { allOf: [{ $ref: '#/components/schemas/UUID' }], nullable: true }
+        action: { type: string }
+        entityType: { type: string }
+        entityId: { allOf: [{ $ref: '#/components/schemas/UUID' }], nullable: true }
+        beforeJson: { type: object, additionalProperties: true, nullable: true }
+        afterJson: { type: object, additionalProperties: true, nullable: true }
+        createdAt: { $ref: '#/components/schemas/DateTime' }
+
+    PaginationMeta:
+      type: object
+      required: [page, limit, total, totalPages]
+      properties:
+        page: { type: integer, minimum: 1 }
+        limit: { type: integer, minimum: 1, maximum: 100 }
+        total: { type: integer, minimum: 0 }
+        totalPages: { type: integer, minimum: 0 }
+
+    PaginatedAcademicYears: { type: object, required: [data, meta], properties: { data: { type: array, items: { $ref: '#/components/schemas/AcademicYear' } }, meta: { $ref: '#/components/schemas/PaginationMeta' } } }
+    PaginatedStudents: { type: object, required: [data, meta], properties: { data: { type: array, items: { $ref: '#/components/schemas/Student' } }, meta: { $ref: '#/components/schemas/PaginationMeta' } } }
+    PaginatedGuardians: { type: object, required: [data, meta], properties: { data: { type: array, items: { $ref: '#/components/schemas/Guardian' } }, meta: { $ref: '#/components/schemas/PaginationMeta' } } }
+    PaginatedClasses: { type: object, required: [data, meta], properties: { data: { type: array, items: { $ref: '#/components/schemas/Class' } }, meta: { $ref: '#/components/schemas/PaginationMeta' } } }
+    PaginatedSubjects: { type: object, required: [data, meta], properties: { data: { type: array, items: { $ref: '#/components/schemas/Subject' } }, meta: { $ref: '#/components/schemas/PaginationMeta' } } }
+    PaginatedReportCards: { type: object, required: [data, meta], properties: { data: { type: array, items: { $ref: '#/components/schemas/ReportCard' } }, meta: { $ref: '#/components/schemas/PaginationMeta' } } }
+    PaginatedAuditLogs: { type: object, required: [data, meta], properties: { data: { type: array, items: { $ref: '#/components/schemas/AuditLog' } }, meta: { $ref: '#/components/schemas/PaginationMeta' } } }
+
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum:
+            - AUTH_INVALID_CREDENTIALS
+            - AUTH_SESSION_EXPIRED
+            - AUTH_FORBIDDEN
+            - VALIDATION_ERROR
+            - RESOURCE_NOT_FOUND
+            - RESOURCE_CONFLICT
+            - STUDENT_ALREADY_ENROLLED
+            - INVALID_ACADEMIC_YEAR
+            - INVALID_SEMESTER
+            - INVALID_TEACHER_ASSIGNMENT
+            - INVALID_WEIGHT_TOTAL
+            - GRADING_SCHEME_PUBLISHED
+            - ASSESSMENT_SCORE_EXCEEDED_MAX
+            - ASSESSMENT_INCOMPLETE
+            - REPORT_NOT_READY
+            - REPORT_ALREADY_PUBLISHED
+            - REPORT_NOT_LOCKED
+            - REPORT_REVISION_REQUIRED
+            - IMPORT_INVALID_FORMAT
+            - IMPORT_VALIDATION_FAILED
+        message: { type: string }
+        details: { type: object, additionalProperties: true }
+        requestId: { type: string }

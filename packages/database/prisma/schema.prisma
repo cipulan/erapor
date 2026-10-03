@@ -1,0 +1,602 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  SUPERADMIN
+  TEACHER
+  PARENT
+}
+
+enum AcademicYearStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum SemesterCode {
+  ODD
+  EVEN
+}
+
+enum SemesterStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+}
+
+enum StudentStatus {
+  ACTIVE
+  GRADUATED
+  TRANSFERRED
+  INACTIVE
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum EnrollmentType {
+  NEW
+  PROMOTED
+  REPEATED
+  TRANSFERRED
+}
+
+enum SubjectType {
+  MANDATORY
+  ADDITIONAL
+  LOCAL
+}
+
+enum AssignmentStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum GradingSchemeStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum AssessmentStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+enum ReportCardStatus {
+  DRAFT
+  REVIEW
+  LOCKED
+  PUBLISHED
+  REVISION
+}
+
+enum AchievementStatus {
+  ACHIEVED
+  NOT_ACHIEVED
+  NOT_ASSESSED
+}
+
+model School {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  code        String?  @unique
+  timezone    String   @default("Asia/Jakarta")
+  address     String?
+  phone       String?
+  email       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  users               User[]
+  students            Student[]
+  guardians           Guardian[]
+  academicYears       AcademicYear[]
+  classes             Class[]
+  subjects            Subject[]
+  assessmentCategories AssessmentCategory[]
+  auditLogs           AuditLog[]
+
+  @@map("schools")
+}
+
+model User {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  schoolId     String   @db.Uuid @map("school_id")
+  email        String
+  passwordHash String   @map("password_hash")
+  fullName     String   @map("full_name")
+  role         UserRole
+  isActive     Boolean  @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  school              School              @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  sessions            Session[]
+  guardian            Guardian?
+  teacherAssignments  TeacherAssignment[]
+  homeroomClasses     Class[]              @relation("HomeroomTeacher")
+  reviewedReports     ReportCard[]         @relation("ReportReviewer")
+  lockedReports       ReportCard[]         @relation("ReportLocker")
+  publishedReports    ReportCard[]         @relation("ReportPublisher")
+  createdAssessments  Assessment[]         @relation("AssessmentCreator")
+  auditLogs            AuditLog[]           @relation("AuditActor")
+
+  @@unique([schoolId, email])
+  @@index([schoolId, role])
+  @@map("users")
+}
+
+model Session {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String   @db.Uuid @map("user_id")
+  tokenHash    String   @unique @map("token_hash")
+  expiresAt    DateTime @map("expires_at")
+  revokedAt    DateTime? @map("revoked_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  lastSeenAt   DateTime? @map("last_seen_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model Student {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  schoolId       String        @db.Uuid @map("school_id")
+  nis            String?
+  nisn           String?
+  fullName       String        @map("full_name")
+  gender         Gender?
+  birthPlace     String?       @map("birth_place")
+  birthDate      DateTime?     @map("birth_date") @db.Date
+  status         StudentStatus @default(ACTIVE)
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  school        School             @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  enrollments   StudentEnrollment[]
+  guardians     StudentGuardian[]
+  assessmentScores AssessmentScore[]
+  reportCards   ReportCard[]
+
+  @@unique([schoolId, nis])
+  @@index([schoolId, fullName])
+  @@index([schoolId, nisn])
+  @@map("students")
+}
+
+model Guardian {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  schoolId   String   @db.Uuid @map("school_id")
+  userId     String?  @unique @db.Uuid @map("user_id")
+  fullName   String   @map("full_name")
+  phone      String?
+  email      String?
+  address    String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  school   School            @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  user     User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  students StudentGuardian[]
+
+  @@index([schoolId, fullName])
+  @@map("guardians")
+}
+
+model StudentGuardian {
+  studentId  String   @db.Uuid @map("student_id")
+  guardianId String   @db.Uuid @map("guardian_id")
+  isPrimary  Boolean  @default(false) @map("is_primary")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  student  Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  guardian Guardian @relation(fields: [guardianId], references: [id], onDelete: Cascade)
+
+  @@id([studentId, guardianId])
+  @@index([guardianId])
+  @@map("student_guardians")
+}
+
+model AcademicYear {
+  id        String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  schoolId  String             @db.Uuid @map("school_id")
+  name      String
+  startDate DateTime           @map("start_date") @db.Date
+  endDate   DateTime           @map("end_date") @db.Date
+  status    AcademicYearStatus @default(DRAFT)
+  createdAt DateTime           @default(now()) @map("created_at")
+  updatedAt DateTime           @updatedAt @map("updated_at")
+
+  school         School              @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  semesters      Semester[]
+  classes        Class[]
+  enrollments    StudentEnrollment[]
+  gradingSchemes GradingScheme[]
+  kktpConfigs   KktpConfiguration[]
+  reportCards    ReportCard[]
+
+  @@unique([schoolId, name])
+  @@index([schoolId, status])
+  @@map("academic_years")
+}
+
+model Semester {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  academicYearId String        @db.Uuid @map("academic_year_id")
+  code          SemesterCode
+  name          String
+  startDate     DateTime?      @map("start_date") @db.Date
+  endDate       DateTime?      @map("end_date") @db.Date
+  status        SemesterStatus @default(DRAFT)
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  academicYear AcademicYear       @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  assignments  TeacherAssignment[]
+  gradingSchemes GradingScheme[]
+  assessments  Assessment[]
+  kktpConfigs  KktpConfiguration[]
+  reportCards  ReportCard[]
+
+  @@unique([id, academicYearId])
+  @@unique([academicYearId, code])
+  @@index([academicYearId, status])
+  @@map("semesters")
+}
+
+model Class {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  schoolId         String   @db.Uuid @map("school_id")
+  academicYearId   String   @db.Uuid @map("academic_year_id")
+  name             String
+  gradeLevel       Int      @map("grade_level")
+  homeroomTeacherId String?  @db.Uuid @map("homeroom_teacher_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  school         School              @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  academicYear   AcademicYear        @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  homeroomTeacher User?              @relation("HomeroomTeacher", fields: [homeroomTeacherId], references: [id], onDelete: SetNull)
+  enrollments    StudentEnrollment[]
+  assignments    TeacherAssignment[]
+  reportCards    ReportCard[]
+  assessments    Assessment[]
+
+  @@unique([id, academicYearId])
+  @@unique([academicYearId, name])
+  @@index([schoolId, academicYearId])
+  @@map("classes")
+}
+
+model StudentEnrollment {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId      String           @db.Uuid @map("student_id")
+  academicYearId String           @db.Uuid @map("academic_year_id")
+  classId        String           @db.Uuid @map("class_id")
+  status         EnrollmentStatus @default(ACTIVE)
+  enrollmentType EnrollmentType   @default(NEW) @map("enrollment_type")
+  enrolledAt     DateTime         @default(now()) @map("enrolled_at")
+  completedAt    DateTime?        @map("completed_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  student      Student      @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  class        Class        @relation(fields: [classId, academicYearId], references: [id, academicYearId], onDelete: Restrict)
+
+  @@unique([studentId, academicYearId])
+  @@index([classId, academicYearId, status])
+  @@index([academicYearId, studentId])
+  @@map("student_enrollments")
+}
+
+model Subject {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  schoolId    String      @db.Uuid @map("school_id")
+  code        String
+  name        String
+  subjectType SubjectType @default(MANDATORY) @map("subject_type")
+  isActive    Boolean     @default(true) @map("is_active")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  school            School               @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  curriculumOutcomes CurriculumOutcome[]
+  teacherAssignments TeacherAssignment[]
+  assessments       Assessment[]
+  kktpConfigs       KktpConfiguration[]
+  reportCardSubjects ReportCardSubject[]
+
+  @@unique([schoolId, code])
+  @@index([schoolId, isActive])
+  @@map("subjects")
+}
+
+model CurriculumOutcome {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  subjectId   String   @db.Uuid @map("subject_id")
+  code        String
+  description String
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  subject          Subject           @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  learningObjectives LearningObjective[]
+  assessments      AssessmentLearningObjective[]
+
+  @@unique([subjectId, code])
+  @@index([subjectId, isActive])
+  @@map("curriculum_outcomes")
+}
+
+model LearningObjective {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cpId        String   @db.Uuid @map("cp_id")
+  code        String
+  description String
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  cp          CurriculumOutcome @relation(fields: [cpId], references: [id], onDelete: Restrict)
+  assessments AssessmentLearningObjective[]
+
+  @@unique([cpId, code])
+  @@index([cpId, isActive])
+  @@map("learning_objectives")
+}
+
+model TeacherAssignment {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  teacherId      String           @db.Uuid @map("teacher_id")
+  academicYearId String           @db.Uuid @map("academic_year_id")
+  semesterId     String           @db.Uuid @map("semester_id")
+  classId        String           @db.Uuid @map("class_id")
+  subjectId      String           @db.Uuid @map("subject_id")
+  status         AssignmentStatus @default(ACTIVE)
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  teacher      User         @relation(fields: [teacherId], references: [id], onDelete: Restrict)
+  semester     Semester     @relation(fields: [semesterId, academicYearId], references: [id, academicYearId], onDelete: Restrict)
+  class        Class        @relation(fields: [classId, academicYearId], references: [id, academicYearId], onDelete: Restrict)
+  subject      Subject      @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  assessments  Assessment[]
+
+  @@unique([teacherId, semesterId, classId, subjectId])
+  @@index([academicYearId, semesterId, classId, subjectId])
+  @@index([teacherId, semesterId, status])
+  @@map("teacher_assignments")
+}
+
+model AssessmentCategory {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  schoolId    String   @db.Uuid @map("school_id")
+  name        String
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  school        School                    @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  schemeWeights GradingSchemeWeight[]
+  assessments   Assessment[]
+
+  @@unique([schoolId, name])
+  @@index([schoolId, isActive])
+  @@map("assessment_categories")
+}
+
+model GradingScheme {
+  id             String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  academicYearId String              @db.Uuid @map("academic_year_id")
+  semesterId     String              @db.Uuid @map("semester_id")
+  status         GradingSchemeStatus @default(DRAFT)
+  publishedAt    DateTime?           @map("published_at")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+
+  academicYear AcademicYear          @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  semester     Semester              @relation(fields: [semesterId, academicYearId], references: [id, academicYearId], onDelete: Restrict)
+  weights      GradingSchemeWeight[]
+
+  @@unique([academicYearId, semesterId])
+  @@index([academicYearId, status])
+  @@map("grading_schemes")
+}
+
+model GradingSchemeWeight {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gradingSchemeId   String   @db.Uuid @map("grading_scheme_id")
+  categoryId        String   @db.Uuid @map("category_id")
+  weight            Decimal  @db.Decimal(5, 2)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  gradingScheme GradingScheme      @relation(fields: [gradingSchemeId], references: [id], onDelete: Cascade)
+  category     AssessmentCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@unique([gradingSchemeId, categoryId])
+  @@index([categoryId])
+  @@map("grading_scheme_weights")
+}
+
+model Assessment {
+  id                  String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  teacherAssignmentId String           @db.Uuid @map("teacher_assignment_id")
+  semesterId          String           @db.Uuid @map("semester_id")
+  classId             String           @db.Uuid @map("class_id")
+  subjectId            String           @db.Uuid @map("subject_id")
+  categoryId           String           @db.Uuid @map("category_id")
+  createdById          String           @db.Uuid @map("created_by_id")
+  title               String
+  description         String?
+  assessmentDate      DateTime?        @map("assessment_date") @db.Date
+  maxScore            Decimal          @db.Decimal(8, 2) @map("max_score")
+  status              AssessmentStatus @default(DRAFT)
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+
+  teacherAssignment TeacherAssignment        @relation(fields: [teacherAssignmentId], references: [id], onDelete: Restrict)
+  semester          Semester                 @relation(fields: [semesterId], references: [id], onDelete: Restrict)
+  class             Class                    @relation(fields: [classId], references: [id], onDelete: Restrict)
+  subject           Subject                 @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  category          AssessmentCategory       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  createdBy         User                     @relation("AssessmentCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  learningObjectives AssessmentLearningObjective[]
+  scores            AssessmentScore[]
+
+  @@index([semesterId, classId, subjectId, categoryId])
+  @@index([teacherAssignmentId, status])
+  @@map("assessments")
+}
+
+model AssessmentLearningObjective {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assessmentId String   @db.Uuid @map("assessment_id")
+  cpId         String   @db.Uuid @map("cp_id")
+  tpId         String?  @db.Uuid @map("tp_id")
+
+  assessment Assessment        @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  cp         CurriculumOutcome @relation(fields: [cpId], references: [id], onDelete: Restrict)
+  tp         LearningObjective? @relation(fields: [tpId], references: [id], onDelete: Restrict)
+
+  @@unique([assessmentId, cpId, tpId])
+  @@index([cpId])
+  @@index([tpId])
+  @@map("assessment_learning_objectives")
+}
+
+model AssessmentScore {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assessmentId String   @db.Uuid @map("assessment_id")
+  studentId    String   @db.Uuid @map("student_id")
+  score        Decimal  @db.Decimal(8, 2)
+  normalizedScore Decimal @db.Decimal(8, 2) @map("normalized_score")
+  note         String?
+  enteredAt    DateTime @default(now()) @map("entered_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  student    Student    @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  @@unique([assessmentId, studentId])
+  @@index([studentId, assessmentId])
+  @@map("assessment_scores")
+}
+
+model KktpConfiguration {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  academicYearId String   @db.Uuid @map("academic_year_id")
+  semesterId     String   @db.Uuid @map("semester_id")
+  subjectId      String   @db.Uuid @map("subject_id")
+  threshold      Decimal  @db.Decimal(5, 2)
+  description    String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  semester     Semester     @relation(fields: [semesterId, academicYearId], references: [id, academicYearId], onDelete: Restrict)
+  subject      Subject      @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+
+  @@unique([academicYearId, semesterId, subjectId])
+  @@index([subjectId, semesterId])
+  @@map("kktp_configurations")
+}
+
+model ReportCard {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId      String           @db.Uuid @map("student_id")
+  academicYearId String           @db.Uuid @map("academic_year_id")
+  semesterId     String           @db.Uuid @map("semester_id")
+  classId        String           @db.Uuid @map("class_id")
+  version        Int              @default(1)
+  status         ReportCardStatus @default(DRAFT)
+  generatedAt    DateTime?        @map("generated_at")
+  reviewedAt     DateTime?        @map("reviewed_at")
+  lockedAt       DateTime?        @map("locked_at")
+  publishedAt    DateTime?        @map("published_at")
+  reviewedById   String?          @db.Uuid @map("reviewed_by_id")
+  lockedById     String?          @db.Uuid @map("locked_by_id")
+  publishedById  String?          @db.Uuid @map("published_by_id")
+  notes          String?
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  student      Student             @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  academicYear AcademicYear        @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  semester     Semester             @relation(fields: [semesterId, academicYearId], references: [id, academicYearId], onDelete: Restrict)
+  class        Class               @relation(fields: [classId, academicYearId], references: [id, academicYearId], onDelete: Restrict)
+  reviewedBy   User?               @relation("ReportReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  lockedBy     User?               @relation("ReportLocker", fields: [lockedById], references: [id], onDelete: SetNull)
+  publishedBy  User?               @relation("ReportPublisher", fields: [publishedById], references: [id], onDelete: SetNull)
+  subjects     ReportCardSubject[]
+
+  @@unique([studentId, academicYearId, semesterId, version])
+  @@index([academicYearId, semesterId, classId, status])
+  @@index([studentId, academicYearId, semesterId])
+  @@map("report_cards")
+}
+
+model ReportCardSubject {
+  id             String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reportCardId   String            @db.Uuid @map("report_card_id")
+  subjectId      String            @db.Uuid @map("subject_id")
+  subjectName    String            @map("subject_name")
+  finalScore     Decimal           @db.Decimal(8, 2) @map("final_score")
+  kktpThreshold  Decimal?          @db.Decimal(5, 2) @map("kktp_threshold")
+  achievement    AchievementStatus @default(NOT_ASSESSED)
+  description    String?
+  snapshotJson   Json?             @map("snapshot_json")
+  createdAt      DateTime          @default(now()) @map("created_at")
+
+  reportCard ReportCard @relation(fields: [reportCardId], references: [id], onDelete: Cascade)
+  subject   Subject    @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+
+  @@unique([reportCardId, subjectId])
+  @@index([subjectId])
+  @@map("report_card_subjects")
+}
+
+model AuditLog {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  schoolId     String   @db.Uuid @map("school_id")
+  actorUserId  String?  @db.Uuid @map("actor_user_id")
+  action       String
+  entityType   String   @map("entity_type")
+  entityId     String?  @db.Uuid @map("entity_id")
+  beforeJson   Json?    @map("before_json")
+  afterJson    Json?    @map("after_json")
+  ipAddress    String?  @map("ip_address")
+  userAgent    String?  @map("user_agent")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  actor  User?  @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([schoolId, createdAt])
+  @@index([schoolId, entityType, entityId])
+  @@index([actorUserId, createdAt])
+  @@map("audit_logs")
+}

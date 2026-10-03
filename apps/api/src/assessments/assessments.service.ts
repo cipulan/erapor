@@ -1,0 +1,298 @@
+import { Injectable } from "@nestjs/common";
+import { Request } from "express";
+import Decimal from "decimal.js";
+import { PrismaService } from "../prisma/prisma.service";
+import { AuditService, AuditAction } from "../audit/audit.service";
+import { ResourcePolicyService } from "../authorization/resource-policy.service";
+import { Errors } from "../common/errors/api-exception";
+import { ApiErrorCode } from "../common/errors/error-codes";
+import type { SessionUser } from "../auth/types/session-user";
+import { normalizeScore } from "../grading/grading-engine";
+import { BulkScoresDto, CreateAssessmentDto, ScoreItemDto } from "./dto/assessment.dto";
+
+@Injectable()
+export class AssessmentsService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+    private readonly policy: ResourcePolicyService,
+  ) {}
+
+  async list(user: SessionUser, filters: Record<string, string>) {
+    const and: Record<string, unknown>[] = [
+      // School scoping through the assignment's class (BR-001).
+      { teacherAssignment: { class: { schoolId: user.schoolId } } },
+    ];
+    if (user.role === "TEACHER") {
+      const assignments = await this.policy.teacherAssignments(user.id);
+      and.push({ teacherAssignmentId: { in: assignments.map((a) => a.id) } });
+    }
+    if (filters.semesterId) {
+      await this.policy.semesterInSchool(user.schoolId, filters.semesterId);
+      and.push({ semesterId: filters.semesterId });
+    }
+    if (filters.classId) {
+      await this.policy.classInSchool(user.schoolId, filters.classId);
+      and.push({ classId: filters.classId });
+    }
+    if (filters.subjectId) {
+      await this.policy.subjectInSchool(user.schoolId, filters.subjectId);
+      and.push({ subjectId: filters.subjectId });
+    }
+    if (filters.categoryId) {
+      and.push({ categoryId: filters.categoryId });
+    }
+    if (filters.status) {
+      and.push({ status: filters.status });
+    }
+
+    const data = await this.prisma.assessment.findMany({
+      where: { AND: and },
+      orderBy: [{ assessmentDate: "desc" }, { createdAt: "desc" }],
+    });
+    return data.map(toAssessmentJson);
+  }
+
+  async create(user: SessionUser, dto: CreateAssessmentDto, req: Request) {
+    const assignment = await this.prisma.teacherAssignment.findFirst({
+      where: { id: dto.teacherAssignmentId },
+      include: { class: true },
+    });
+    if (!assignment || assignment.class.schoolId !== user.schoolId) {
+      throw Errors.validation(ApiErrorCode.INVALID_TEACHER_ASSIGNMENT, "Penugasan mengajar tidak valid.");
+    }
+    if (user.role === "TEACHER") {
+      if (assignment.teacherId !== user.id || assignment.status !== "ACTIVE") {
+        throw Errors.forbidden("Asesmen hanya dapat dibuat untuk penugasan Anda sendiri.");
+      }
+    }
+    if (
+      assignment.semesterId !== dto.semesterId ||
+      assignment.classId !== dto.classId ||
+      assignment.subjectId !== dto.subjectId
+    ) {
+      throw Errors.validation(
+        ApiErrorCode.INVALID_TEACHER_ASSIGNMENT,
+        "Semester/kelas/mapel asesmen harus sesuai penugasan mengajar.",
+      );
+    }
+
+    const category = await this.prisma.assessmentCategory.findFirst({
+      where: { id: dto.categoryId, schoolId: user.schoolId, isActive: true },
+    });
+    if (!category) {
+      throw Errors.validation(ApiErrorCode.VALIDATION_ERROR, "Kategori penilaian tidak valid atau tidak aktif.");
+    }
+    if (dto.maxScore <= 0) {
+      throw Errors.validation(ApiErrorCode.VALIDATION_ERROR, "Nilai maksimum harus lebih dari 0.");
+    }
+
+    const assessment = await this.prisma.assessment.create({
+      data: {
+        teacherAssignmentId: assignment.id,
+        semesterId: dto.semesterId,
+        classId: dto.classId,
+        subjectId: dto.subjectId,
+        categoryId: category.id,
+        createdById: user.id,
+        title: dto.title.trim(),
+        description: dto.description?.trim() || null,
+        assessmentDate: dto.assessmentDate ? new Date(dto.assessmentDate) : null,
+        maxScore: new Decimal(dto.maxScore),
+        status: dto.status ?? "DRAFT",
+      },
+    });
+    await this.audit.log({
+      req,
+      schoolId: user.schoolId,
+      actorUserId: user.id,
+      action: AuditAction.ASSESSMENT_CREATE,
+      entityType: "Assessment",
+      entityId: assessment.id,
+      afterJson: toAssessmentJson(assessment) as Record<string, unknown>,
+    });
+    return toAssessmentJson(assessment);
+  }
+
+  async get(user: SessionUser, id: string) {
+    const assessment = await this.scopedAssessment(user, id);
+    const scores = await this.prisma.assessmentScore.findMany({
+      where: { assessmentId: assessment.id },
+      include: { student: { select: { id: true, fullName: true, nis: true } } },
+    });
+    return { ...toAssessmentJson(assessment), scores: scores.map(toScoreJson) };
+  }
+
+  async listScores(user: SessionUser, id: string) {
+    const assessment = await this.scopedAssessment(user, id);
+    const scores = await this.prisma.assessmentScore.findMany({
+      where: { assessmentId: assessment.id },
+      include: { student: { select: { id: true, fullName: true, nis: true } } },
+      orderBy: { student: { fullName: "asc" } },
+    });
+    return scores.map(toScoreJson);
+  }
+
+  /**
+   * Bulk score entry, executed transactionally. Every score is validated:
+   * student enrolled in the assessment class/year, 0 <= score <= maxScore.
+   */
+  async replaceScores(user: SessionUser, id: string, dto: BulkScoresDto, req: Request) {
+    const assessment = await this.scopedAssessment(user, id);
+    if (assessment.status === "CLOSED") {
+      throw Errors.conflict(ApiErrorCode.RESOURCE_CONFLICT, "Asesmen sudah ditutup; nilai tidak dapat diubah.");
+    }
+    const maxScore = new Decimal(assessment.maxScore.toString());
+
+    const studentIds = dto.scores.map((s) => s.studentId);
+    if (new Set(studentIds).size !== studentIds.length) {
+      throw Errors.validation(ApiErrorCode.VALIDATION_ERROR, "Terdapat studentId duplikat dalam daftar nilai.");
+    }
+
+    const enrollments = await this.prisma.studentEnrollment.findMany({
+      where: {
+        studentId: { in: studentIds },
+        classId: assessment.classId,
+        academicYearId: assessment.teacherAssignment.academicYearId,
+        status: "ACTIVE",
+      },
+      select: { studentId: true },
+    });
+    const enrolled = new Set<string>(
+      enrollments.map((e: { studentId: string }) => e.studentId),
+    );
+
+    for (const item of dto.scores) {
+      validateScoreItem(item, enrolled, maxScore);
+    }
+
+    const saved = await this.prisma.$transaction(async (tx) => {
+      const rows = [];
+      for (const item of dto.scores) {
+        const normalized = normalizeScore(item.score, maxScore);
+        const row = await tx.assessmentScore.upsert({
+          where: {
+            assessmentId_studentId: { assessmentId: assessment.id, studentId: item.studentId },
+          },
+          create: {
+            assessmentId: assessment.id,
+            studentId: item.studentId,
+            score: new Decimal(item.score),
+            normalizedScore: normalized,
+            note: item.note?.trim() || null,
+          },
+          update: {
+            score: new Decimal(item.score),
+            normalizedScore: normalized,
+            note: item.note?.trim() || null,
+          },
+          include: { student: { select: { id: true, fullName: true, nis: true } } },
+        });
+        rows.push(row);
+      }
+      return rows;
+    });
+
+    await this.audit.log({
+      req,
+      schoolId: user.schoolId,
+      actorUserId: user.id,
+      action: AuditAction.SCORES_BULK_UPDATE,
+      entityType: "AssessmentScore",
+      entityId: assessment.id,
+      afterJson: { assessmentId: assessment.id, count: saved.length },
+    });
+    return saved.map(toScoreJson);
+  }
+
+  /** Applies pre-validated import rows (from the import preview token). */
+  async applyImportRows(
+    user: SessionUser,
+    assessmentId: string,
+    rows: Array<{ studentId: string; score: number; note?: string }>,
+    req: Request,
+  ) {
+    const dto: BulkScoresDto = {
+      scores: rows.map((r) => ({ studentId: r.studentId, score: r.score, note: r.note })),
+    };
+    return this.replaceScores(user, assessmentId, dto, req);
+  }
+
+  private async scopedAssessment(user: SessionUser, id: string) {
+    if (user.role === "TEACHER") {
+      return this.policy.requireTeacherOwnsAssessment(user.id, user.schoolId, id);
+    }
+    return this.policy.assessmentInSchool(user.schoolId, id);
+  }
+}
+
+export function validateScoreItem(
+  item: ScoreItemDto,
+  enrolledStudentIds: Set<string>,
+  maxScore: Decimal,
+): void {
+  if (!enrolledStudentIds.has(item.studentId)) {
+    throw Errors.validation(
+      ApiErrorCode.VALIDATION_ERROR,
+      "Sebagian siswa tidak terdaftar aktif di kelas/tahun ajaran asesmen ini.",
+      { studentId: item.studentId },
+    );
+  }
+  const score = new Decimal(item.score);
+  if (score.isNegative() || score.gt(maxScore)) {
+    throw Errors.validation(
+      ApiErrorCode.ASSESSMENT_SCORE_EXCEEDED_MAX,
+      `Nilai harus antara 0 dan ${maxScore.toString()}.`,
+      { studentId: item.studentId, score: item.score, maxScore: maxScore.toString() },
+    );
+  }
+}
+
+export function toAssessmentJson(a: {
+  id: string;
+  teacherAssignmentId: string;
+  semesterId: string;
+  classId: string;
+  subjectId: string;
+  categoryId: string;
+  title: string;
+  description: string | null;
+  assessmentDate: Date | null;
+  maxScore: unknown;
+  status: string;
+}) {
+  return {
+    id: a.id,
+    teacherAssignmentId: a.teacherAssignmentId,
+    semesterId: a.semesterId,
+    classId: a.classId,
+    subjectId: a.subjectId,
+    categoryId: a.categoryId,
+    title: a.title,
+    description: a.description,
+    assessmentDate: a.assessmentDate ? a.assessmentDate.toISOString().slice(0, 10) : null,
+    maxScore: Number(new Decimal(a.maxScore as Decimal.Value).toString()),
+    status: a.status,
+  };
+}
+
+export function toScoreJson(s: {
+  id: string;
+  assessmentId: string;
+  studentId: string;
+  score: unknown;
+  normalizedScore: unknown;
+  note: string | null;
+  student?: { id: string; fullName: string; nis: string | null };
+}) {
+  const base = {
+    id: s.id,
+    assessmentId: s.assessmentId,
+    studentId: s.studentId,
+    score: Number(new Decimal(s.score as Decimal.Value).toString()),
+    normalizedScore: Number(new Decimal(s.normalizedScore as Decimal.Value).toString()),
+    note: s.note,
+  };
+  // Extra nested student info (not in the contract) helps the score grid UI.
+  return s.student ? { ...base, student: s.student } : base;
+}

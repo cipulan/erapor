@@ -1,0 +1,50 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: erapor-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-erapor}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-erapor}
+      POSTGRES_DB: ${POSTGRES_DB:-erapor}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-erapor} -d $${POSTGRES_DB:-erapor}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: erapor-api
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-erapor}:${POSTGRES_PASSWORD:-erapor}@postgres:5432/${POSTGRES_DB:-erapor}
+      SESSION_SECRET: ${SESSION_SECRET:-change-me-in-production}
+      PORT: 3001
+      NODE_ENV: production
+    ports:
+      - "${API_PORT:-3001}:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: erapor-web
+    environment:
+      API_URL: http://api:3001
+      NEXT_PUBLIC_APP_NAME: "eRapor SD"
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

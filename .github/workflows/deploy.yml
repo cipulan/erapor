@@ -1,0 +1,87 @@
+name: Deploy to server
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Queue deployments instead of running them concurrently
+concurrency:
+  group: erapor-deploy
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Typecheck API
+        run: |
+          npm ci --no-audit --no-fund --workspace=@erapor/database --workspace=@erapor/api --include-workspace-root
+          npm run db:generate
+          npx tsc --noEmit -p apps/api/tsconfig.json
+
+      - name: API unit tests
+        run: npm run test --workspace=@erapor/api
+
+      - name: Typecheck Web
+        run: npx tsc --noEmit -p apps/web/tsconfig.json
+
+      - name: Validate YAML files
+        run: |
+          python3 - <<'EOF'
+          import glob, yaml
+          files = ['docker-compose.yml'] + sorted(glob.glob('.github/workflows/*.yml'))
+          for f in files:
+              yaml.safe_load(open(f))
+              print('OK', f)
+          EOF
+
+      - name: Validate compose config
+        run: |
+          touch .env
+          docker compose config --quiet && echo "compose OK"
+
+      - name: Lint Dockerfiles
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: apps/api/Dockerfile
+          failure-threshold: error
+
+      - name: Lint Web Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: apps/web/Dockerfile
+          failure-threshold: error
+
+  deploy:
+    name: Deploy
+    needs: check
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 3322
+          script: |
+            set -e
+            if [ ! -d /home/opc/erapor ]; then
+              git clone git@github.com:cipulan/erapor.git /home/opc/erapor
+            fi
+            cd /home/opc/erapor
+            git pull --ff-only origin main
+            docker compose up -d --build
+            docker compose ps
