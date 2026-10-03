@@ -14,6 +14,7 @@ RUN npm ci --no-audit --no-fund
 # Source + generate Prisma client + build workspace deps + build
 COPY . .
 RUN npm run db:generate
+RUN npm run build --workspace=@erapor/database
 RUN npm run build --workspace=@erapor/api-client
 RUN npm run build --workspace=@erapor/api
 RUN npm prune --omit=dev --no-audit --no-fund
