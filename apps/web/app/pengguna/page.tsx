@@ -7,7 +7,7 @@ import { api } from "@/lib/api";
 import { errorMessage, formatDateTime } from "@/lib/format";
 import { useRequireAuth } from "@/components/auth";
 import {
-  Alert, Badge, Button, Card, EmptyState, Field, Modal,
+  Alert, Badge, Button, Card, CopyButton, EmptyState, Field, Modal,
   PageHeader, Pagination, Spinner,
 } from "@/components/ui";
 import { ResponsiveTable } from "@/components/responsive-table";
@@ -44,10 +44,11 @@ function PenggunaInner() {
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const load = useCallback(async (role: Tab, keyword: string, p: number) => {
     setLoading(true);
-    setError("");
+    setError(""); setSuccess("");
     try {
       const r = await api().users.list({ role, q: keyword || undefined, page: p, limit: 20 });
       setRows(r.data);
@@ -140,6 +141,44 @@ function PenggunaInner() {
     }
   }
 
+  // ---------- modal ubah akun ----------
+  const [editTarget, setEditTarget] = useState<UserItem | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editBusy, setEditBusy] = useState(false);
+  const [editError, setEditError] = useState("");
+
+  function openEdit(u: UserItem) {
+    setEditTarget(u);
+    setEditName(u.fullName);
+    setEditEmail(u.email);
+    setEditError("");
+  }
+
+  async function submitEdit() {
+    if (!editTarget) return;
+    setEditError("");
+    const fullName = editName.trim();
+    const email = editEmail.trim();
+    if (fullName.length < 3) { setEditError("Nama lengkap minimal 3 karakter."); return; }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { setEditError("Format email tidak valid."); return; }
+    const data: { fullName?: string; email?: string } = {};
+    if (fullName !== editTarget.fullName) data.fullName = fullName;
+    if (email.toLowerCase() !== editTarget.email.toLowerCase()) data.email = email;
+    if (Object.keys(data).length === 0) { setEditError("Tidak ada perubahan."); return; }
+    setEditBusy(true);
+    try {
+      await api().users.updateProfile(editTarget.id, data);
+      setEditTarget(null);
+      setSuccess(`Akun ${tabLabel} berhasil diubah.`);
+      void load(tab, q, page);
+    } catch (err) {
+      setEditError(errorMessage(err));
+    } finally {
+      setEditBusy(false);
+    }
+  }
+
   // ---------- nonaktif/aktifkan ----------
   const [confirmTarget, setConfirmTarget] = useState<UserItem | null>(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
@@ -159,14 +198,6 @@ function PenggunaInner() {
     }
   }
 
-  async function copyText(t: string) {
-    try {
-      await navigator.clipboard.writeText(t);
-    } catch {
-      /* abaikan */
-    }
-  }
-
   if (authLoading) return <Spinner />;
   const tabLabel = tab === "TEACHER" ? "guru" : "wali";
 
@@ -178,6 +209,7 @@ function PenggunaInner() {
         actions={<Button onClick={openAdd}>+ Tambah {tab === "TEACHER" ? "Guru" : "Wali"}</Button>}
       />
       <Alert kind="error">{error}</Alert>
+      <Alert kind="success">{success}</Alert>
 
       <div className="btn-row" style={{ marginBottom: 12 }}>
         {TABS.map((t) => (
@@ -215,6 +247,7 @@ function PenggunaInner() {
                 key: "aksi", label: "Aksi",
                 render: (u) => (
                   <div className="btn-row">
+                    <Button small variant="secondary" onClick={() => openEdit(u)}>Ubah</Button>
                     <Button small variant="secondary" onClick={() => openReset(u)}>Reset password</Button>
                     <Button
                       small
@@ -243,7 +276,7 @@ function PenggunaInner() {
               <Alert kind="success">Akun berhasil dibuat. Simpan password ini — hanya ditampilkan sekali:</Alert>
               <div className="toolbar">
                 <code style={{ fontSize: 18, letterSpacing: 1 }}>{addResult}</code>
-                <Button variant="secondary" onClick={() => void copyText(addResult)}>Salin</Button>
+                <CopyButton text={addResult} />
               </div>
               <div className="btn-row" style={{ marginTop: 12 }}>
                 <Button onClick={() => setShowAdd(false)}>Selesai</Button>
@@ -286,7 +319,7 @@ function PenggunaInner() {
               <Alert kind="success">Password baru berhasil dibuat. Simpan — hanya ditampilkan sekali:</Alert>
               <div className="toolbar">
                 <code style={{ fontSize: 18, letterSpacing: 1 }}>{resetResult}</code>
-                <Button variant="secondary" onClick={() => void copyText(resetResult)}>Salin</Button>
+                <CopyButton text={resetResult} />
               </div>
               <div className="btn-row" style={{ marginTop: 12 }}>
                 <Button onClick={() => setResetTarget(null)}>Selesai</Button>
@@ -314,6 +347,22 @@ function PenggunaInner() {
               </div>
             </>
           )}
+        </Modal>
+      )}
+
+      {editTarget && (
+        <Modal title={`Ubah akun — ${editTarget.fullName}`} onClose={() => { if (!editBusy) setEditTarget(null); }}>
+          <Field label="Nama lengkap">
+            <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} maxLength={100} />
+          </Field>
+          <Field label="Email">
+            <input type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} maxLength={100} />
+          </Field>
+          <Alert kind="error">{editError}</Alert>
+          <div className="btn-row">
+            <Button onClick={() => void submitEdit()} disabled={editBusy}>{editBusy ? "Menyimpan..." : "Simpan"}</Button>
+            <Button variant="secondary" onClick={() => setEditTarget(null)} disabled={editBusy}>Batal</Button>
+          </div>
         </Modal>
       )}
 

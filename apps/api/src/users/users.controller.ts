@@ -9,6 +9,7 @@ import {
   CreateUserDto,
   ResetPasswordDto,
   SetUserActiveDto,
+  UpdateUserDto,
 } from "./dto/user.dto";
 
 /**
@@ -57,5 +58,16 @@ export class UsersController {
     @Req() req: Request,
   ) {
     return this.service.setActive(user, id, dto, req);
+  }
+
+  @Patch(":id/profile")
+  @Roles("SUPERADMIN")
+  updateUser(
+    @CurrentUser() user: SessionUser,
+    @Param("id") id: string,
+    @Body() dto: UpdateUserDto,
+    @Req() req: Request,
+  ) {
+    return this.service.updateUser(user, id, dto, req);
   }
 }

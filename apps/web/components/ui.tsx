@@ -13,6 +13,47 @@ export function Button({
   return <button className={cls} {...props} />;
 }
 
+/**
+ * Tombol salin dengan fallback untuk non-HTTPS (clipboard API butuh secure
+ * context; di akses HTTP via IP LAN pakai textarea + execCommand).
+ */
+export function CopyButton({ text, label = "Salin" }: { text: string; label?: string }) {
+  const [copied, setCopied] = React.useState(false);
+  async function onCopy() {
+    let ok = false;
+    try {
+      await navigator.clipboard.writeText(text);
+      ok = true;
+    } catch {
+      /* bukan secure context — pakai fallback di bawah */
+    }
+    if (!ok) {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+      } catch {
+        ok = false;
+      }
+    }
+    if (ok) {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    }
+  }
+  return (
+    <Button variant="secondary" onClick={() => void onCopy()}>
+      {copied ? "Tersalin ✓" : label}
+    </Button>
+  );
+}
+
 /* ---------- kartu & kepala halaman ---------- */
 export function Card({ title, children, actions }: { title?: string; actions?: React.ReactNode; children: React.ReactNode }) {
   return (

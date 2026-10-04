@@ -34,6 +34,34 @@ export class CreateStudentDto {
   birthDate?: string;
 }
 
+/** PATCH /students/:id — admin mengubah data diri siswa (semua field opsional). */
+export class UpdateStudentDto {
+  @IsOptional()
+  @IsString()
+  nis?: string;
+
+  @IsOptional()
+  @IsString()
+  nisn?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1, { message: "Nama lengkap wajib diisi." })
+  fullName?: string;
+
+  @IsOptional()
+  @IsIn(["MALE", "FEMALE"], { message: "Jenis kelamin harus MALE atau FEMALE." })
+  gender?: "MALE" | "FEMALE";
+
+  @IsOptional()
+  @IsString()
+  birthPlace?: string;
+
+  @IsOptional()
+  @IsDateString({}, { message: "Format tanggal lahir tidak valid (YYYY-MM-DD)." })
+  birthDate?: string;
+}
+
 export class CreateEnrollmentDto {
   @IsUUID("4", { message: "academicYearId tidak valid." })
   academicYearId!: string;

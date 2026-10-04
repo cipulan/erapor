@@ -51,6 +51,8 @@ import type {
   TeacherAssignment,
   UpdateProfileInput,
   UpdateSchoolInput,
+  UpdateStudentInput,
+  UpdateUserInput,
   UpsertKktpInput,
   UserItem,
   UserProfile,
@@ -200,6 +202,8 @@ export function createApiClient(options: ClientOptions) {
         post<ResetPasswordResult>(`/users/${id}/reset-password`, data ?? {}),
       setActive: (id: string, isActive: boolean) =>
         patch<UserSummary>(`/users/${id}`, { isActive }),
+      updateProfile: (id: string, data: UpdateUserInput) =>
+        patch<UserSummary>(`/users/${id}/profile`, data),
     },
 
     // ---- Tahun ajaran & semester ----
@@ -221,6 +225,7 @@ export function createApiClient(options: ClientOptions) {
       list: (params?: PageParams & { search?: string; classId?: string; academicYearId?: string; status?: string }) =>
         get<Paginated<Student>>(`/students${buildQuery(params)}`),
       create: (data: CreateStudentInput) => post<Student>("/students", data),
+      update: (id: string, data: UpdateStudentInput) => patch<Student>(`/students/${id}`, data),
       get: (id: string) => get<StudentDetail>(`/students/${id}`),
       enrollments: (id: string) => get<StudentEnrollment[]>(`/students/${id}/enrollments`),
       createEnrollment: (id: string, data: CreateEnrollmentInput) =>

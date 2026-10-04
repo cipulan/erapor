@@ -71,6 +71,8 @@ export type {
   TeacherAssignment,
   UpdateProfileInput,
   UpdateSchoolInput,
+  UpdateStudentInput,
+  UpdateUserInput,
   UpsertKktpInput,
   UserItem,
   UserProfile,

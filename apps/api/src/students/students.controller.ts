@@ -1,11 +1,11 @@
-import { Body, Controller, Get, Param, Post, Query, Req } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Query, Req } from "@nestjs/common";
 import { Request } from "express";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { Roles } from "../common/decorators/roles.decorator";
 import { parsePagination } from "../common/http/pagination";
 import type { SessionUser } from "../auth/types/session-user";
 import { StudentsService } from "./students.service";
-import { CreateEnrollmentDto, CreateStudentDto, LinkGuardianDto } from "./dto/student.dto";
+import { CreateEnrollmentDto, CreateStudentDto, LinkGuardianDto, UpdateStudentDto } from "./dto/student.dto";
 
 @Controller("students")
 export class StudentsController {
@@ -26,6 +26,17 @@ export class StudentsController {
   @Roles("SUPERADMIN")
   async create(@CurrentUser() user: SessionUser, @Body() dto: CreateStudentDto, @Req() req: Request) {
     return this.service.create(user, dto, req);
+  }
+
+  @Patch(":id")
+  @Roles("SUPERADMIN")
+  async update(
+    @CurrentUser() user: SessionUser,
+    @Param("id") id: string,
+    @Body() dto: UpdateStudentDto,
+    @Req() req: Request,
+  ) {
+    return this.service.update(user, id, dto, req);
   }
 
   @Get(":id")

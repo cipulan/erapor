@@ -15,6 +15,7 @@ import {
   ResetPasswordDto,
   SetUserActiveDto,
   UpdateProfileDto,
+  UpdateUserDto,
 } from "./dto/user.dto";
 
 const profileSelect = {
@@ -289,6 +290,44 @@ export class UsersService {
       entityType: "User",
       entityId: target.id,
       afterJson: { isActive: dto.isActive },
+    });
+    return updated;
+  }
+
+  /** Admin (SUPERADMIN) mengubah nama/email akun guru/wali. */
+  async updateUser(admin: SessionUser, id: string, dto: UpdateUserDto, req: Request) {
+    const target = await this.manageableTarget(admin, id);
+    const data: { fullName?: string; email?: string } = {};
+    if (dto.fullName !== undefined) data.fullName = dto.fullName.trim();
+    if (dto.email !== undefined) {
+      const email = dto.email.trim().toLowerCase();
+      const dup = await this.prisma.user.findFirst({
+        where: { schoolId: admin.schoolId, email, id: { not: target.id } },
+        select: { id: true },
+      });
+      if (dup) {
+        throw Errors.conflict(ApiErrorCode.RESOURCE_CONFLICT, "Email sudah digunakan akun lain.");
+      }
+      data.email = email;
+    }
+    if (Object.keys(data).length === 0) {
+      throw Errors.validation(ApiErrorCode.VALIDATION_ERROR, "Tidak ada perubahan yang dikirim.");
+    }
+    const before = { fullName: target.fullName, email: target.email };
+    const updated = await this.prisma.user.update({
+      where: { id: target.id },
+      data,
+      select: { id: true, email: true, fullName: true, role: true, isActive: true },
+    });
+    await this.audit.log({
+      req,
+      schoolId: admin.schoolId,
+      actorUserId: admin.id,
+      action: AuditAction.USER_UPDATE,
+      entityType: "User",
+      entityId: target.id,
+      beforeJson: before,
+      afterJson: data,
     });
     return updated;
   }

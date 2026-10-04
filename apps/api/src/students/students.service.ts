@@ -7,7 +7,7 @@ import { Errors } from "../common/errors/api-exception";
 import { ApiErrorCode } from "../common/errors/error-codes";
 import { Paginated, PaginationParams, buildPaginated } from "../common/http/pagination";
 import type { SessionUser } from "../auth/types/session-user";
-import { CreateEnrollmentDto, CreateStudentDto, LinkGuardianDto } from "./dto/student.dto";
+import { CreateEnrollmentDto, CreateStudentDto, LinkGuardianDto, UpdateStudentDto } from "./dto/student.dto";
 
 @Injectable()
 export class StudentsService {
@@ -117,6 +117,56 @@ export class StudentsService {
       afterJson: toStudentJson(student) as Record<string, unknown>,
     });
     return toStudentJson(student);
+  }
+
+  /** SUPERADMIN mengubah data diri siswa. */
+  async update(user: SessionUser, id: string, dto: UpdateStudentDto, req: Request) {
+    const student = await this.policy.studentInSchool(user.schoolId, id);
+    const data: {
+      nis?: string | null;
+      nisn?: string | null;
+      fullName?: string;
+      gender?: "MALE" | "FEMALE" | null;
+      birthPlace?: string | null;
+      birthDate?: Date | null;
+    } = {};
+    if (dto.nis !== undefined) {
+      const nis = dto.nis.trim() || null;
+      if (nis) {
+        const dup = await this.prisma.student.findFirst({
+          where: { schoolId: user.schoolId, nis, id: { not: student.id } },
+          select: { id: true },
+        });
+        if (dup) {
+          throw Errors.conflict(ApiErrorCode.RESOURCE_CONFLICT, "NIS sudah digunakan siswa lain.");
+        }
+      }
+      data.nis = nis;
+    }
+    if (dto.nisn !== undefined) data.nisn = dto.nisn.trim() || null;
+    if (dto.fullName !== undefined) data.fullName = dto.fullName.trim();
+    if (dto.gender !== undefined) data.gender = dto.gender;
+    if (dto.birthPlace !== undefined) data.birthPlace = dto.birthPlace.trim() || null;
+    if (dto.birthDate !== undefined) data.birthDate = dto.birthDate ? new Date(dto.birthDate) : null;
+    if (Object.keys(data).length === 0) {
+      throw Errors.validation(ApiErrorCode.VALIDATION_ERROR, "Tidak ada perubahan yang dikirim.");
+    }
+    const before = toStudentJson(student);
+    const updated = await this.prisma.student.update({
+      where: { id: student.id },
+      data,
+    });
+    await this.audit.log({
+      req,
+      schoolId: user.schoolId,
+      actorUserId: user.id,
+      action: AuditAction.STUDENT_UPDATE,
+      entityType: "Student",
+      entityId: student.id,
+      beforeJson: before as Record<string, unknown>,
+      afterJson: toStudentJson(updated) as Record<string, unknown>,
+    });
+    return toStudentJson(updated);
   }
 
   async listEnrollments(user: SessionUser, studentId: string) {

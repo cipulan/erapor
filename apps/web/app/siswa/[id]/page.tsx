@@ -26,6 +26,50 @@ export default function SiswaDetailPage({ params }: { params: Promise<{ id: stri
   const [linkForm, setLinkForm] = useState({ guardianId: "", isPrimary: false });
   const [saving, setSaving] = useState(false);
 
+  // ---------- ubah data diri ----------
+  const [showEdit, setShowEdit] = useState(false);
+  const [editForm, setEditForm] = useState({ fullName: "", nis: "", nisn: "", gender: "" as "" | "MALE" | "FEMALE", birthPlace: "", birthDate: "" });
+  const [editError, setEditError] = useState("");
+
+  function openEdit() {
+    if (!student) return;
+    setEditForm({
+      fullName: student.fullName,
+      nis: student.nis ?? "",
+      nisn: student.nisn ?? "",
+      gender: (student.gender ?? "") as "" | "MALE" | "FEMALE",
+      birthPlace: student.birthPlace ?? "",
+      birthDate: student.birthDate ? student.birthDate.slice(0, 10) : "",
+    });
+    setEditError("");
+    setShowEdit(true);
+  }
+
+  async function onEdit(e: React.FormEvent) {
+    e.preventDefault();
+    setEditError("");
+    const fullName = editForm.fullName.trim();
+    if (!fullName) { setEditError("Nama lengkap wajib diisi."); return; }
+    setSaving(true);
+    try {
+      await api().students.update(id, {
+        fullName,
+        nis: editForm.nis.trim(),
+        nisn: editForm.nisn.trim(),
+        gender: editForm.gender || undefined,
+        birthPlace: editForm.birthPlace.trim(),
+        birthDate: editForm.birthDate || undefined,
+      });
+      setShowEdit(false);
+      setSuccess("Data siswa berhasil diubah.");
+      await load();
+    } catch (err) {
+      setEditError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function load() {
     setLoading(true);
     setError("");
@@ -107,7 +151,7 @@ export default function SiswaDetailPage({ params }: { params: Promise<{ id: stri
       <Alert kind="success">{success}</Alert>
 
       {student && (
-        <Card title="Data diri">
+        <Card title="Data diri" actions={<Button small variant="secondary" onClick={openEdit}>Ubah</Button>}>
           <dl className="kv">
             <dt>Nama</dt><dd>{student.fullName}</dd>
             <dt>NIS / NISN</dt><dd>{student.nis ?? "-"} / {student.nisn ?? "-"}</dd>
@@ -151,6 +195,34 @@ export default function SiswaDetailPage({ params }: { params: Promise<{ id: stri
           />
         )}
       </Card>
+
+      {showEdit && (
+        <Modal title="Ubah Data Siswa" onClose={() => { if (!saving) setShowEdit(false); }}>
+          <form onSubmit={onEdit}>
+            <Field label="Nama lengkap"><input type="text" value={editForm.fullName} onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })} /></Field>
+            <div className="form-row">
+              <Field label="NIS"><input type="text" value={editForm.nis} onChange={(e) => setEditForm({ ...editForm, nis: e.target.value })} /></Field>
+              <Field label="NISN"><input type="text" value={editForm.nisn} onChange={(e) => setEditForm({ ...editForm, nisn: e.target.value })} /></Field>
+            </div>
+            <div className="form-row">
+              <Field label="Jenis kelamin">
+                <select value={editForm.gender} onChange={(e) => setEditForm({ ...editForm, gender: e.target.value as "" | "MALE" | "FEMALE" })}>
+                  <option value="">—</option>
+                  <option value="MALE">Laki-laki</option>
+                  <option value="FEMALE">Perempuan</option>
+                </select>
+              </Field>
+              <Field label="Tanggal lahir"><input type="date" value={editForm.birthDate} onChange={(e) => setEditForm({ ...editForm, birthDate: e.target.value })} /></Field>
+            </div>
+            <Field label="Tempat lahir"><input type="text" value={editForm.birthPlace} onChange={(e) => setEditForm({ ...editForm, birthPlace: e.target.value })} /></Field>
+            <Alert kind="error">{editError}</Alert>
+            <div className="btn-row">
+              <Button type="submit" disabled={saving}>{saving ? "Menyimpan..." : "Simpan"}</Button>
+              <Button type="button" variant="secondary" onClick={() => setShowEdit(false)} disabled={saving}>Batal</Button>
+            </div>
+          </form>
+        </Modal>
+      )}
 
       {showEnroll && (
         <Modal title="Tambah Enrollment" onClose={() => setShowEnroll(false)}>

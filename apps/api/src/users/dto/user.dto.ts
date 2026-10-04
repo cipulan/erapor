@@ -53,3 +53,15 @@ export class SetUserActiveDto {
   @IsBoolean({ message: "isActive harus berupa boolean." })
   isActive!: boolean;
 }
+
+/** PATCH /users/:id/profile — admin mengubah nama/email akun guru/wali. */
+export class UpdateUserDto {
+  @IsOptional()
+  @IsString({ message: "Nama lengkap harus berupa teks." })
+  @MinLength(3, { message: "Nama lengkap minimal 3 karakter." })
+  fullName?: string;
+
+  @IsOptional()
+  @IsEmail({}, { message: "Format email tidak valid." })
+  email?: string;
+}

@@ -119,6 +119,11 @@ export interface ResetPasswordResult {
   generatedPassword?: string;
 }
 
+export interface UpdateUserInput {
+  fullName?: string;
+  email?: string;
+}
+
 export type AcademicYearStatus = "DRAFT" | "ACTIVE" | "ARCHIVED";
 export interface AcademicYear {
   id: string;
@@ -167,6 +172,14 @@ export interface CreateStudentInput {
   nis?: string;
   nisn?: string;
   fullName: string;
+  gender?: Gender;
+  birthPlace?: string;
+  birthDate?: string;
+}
+export interface UpdateStudentInput {
+  nis?: string;
+  nisn?: string;
+  fullName?: string;
   gender?: Gender;
   birthPlace?: string;
   birthDate?: string;
