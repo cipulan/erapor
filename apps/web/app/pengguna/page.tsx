@@ -240,6 +240,7 @@ function PenggunaInner() {
           <ResponsiveTable<UserItem>
             columns={[
               { key: "fullName", label: "Nama", render: (u) => u.fullName },
+              { key: "role", label: "Role", render: (u) => <Badge status={u.role} /> },
               { key: "email", label: "Email", render: (u) => <span className="small">{u.email}</span> },
               { key: "status", label: "Status", render: (u) => <Badge status={u.isActive ? "ACTIVE" : "INACTIVE"} /> },
               { key: "lastLoginAt", label: "Login terakhir", render: (u) => <span className="small">{formatDateTime(u.lastLoginAt)}</span> },

@@ -98,6 +98,7 @@ const STATUS_COLORS: Record<string, string> = {
   DRAFT: "gray", INACTIVE: "gray", CLOSED: "gray", ARCHIVED: "gray",
   REVIEW: "blue", LOCKED: "amber", COMPLETE: "green",
   INCOMPLETE: "red", NOT_ACHIEVED: "red", REVISION: "amber",
+  SUPERADMIN: "blue", TEACHER: "green", PARENT: "amber",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -110,6 +111,7 @@ const STATUS_LABELS: Record<string, string> = {
   MANDATORY: "Wajib", ADDITIONAL: "Tambahan", LOCAL: "Mulok",
   NEW: "Baru", PROMOTED: "Naik kelas", REPEATED: "Tinggal kelas", TRANSFERRED: "Pindahan",
   GRADUATED: "Lulus", COMPLETED: "Selesai", CANCELLED: "Batal",
+  SUPERADMIN: "Superadmin", TEACHER: "Guru", PARENT: "Wali",
 };
 
 export function Badge({ status, label }: { status?: string | null; label?: string }) {
