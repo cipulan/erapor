@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { AcademicYear, ClassItem } from "@erapor/api-client";
+import type { AcademicYear, ClassItem, UserItem } from "@erapor/api-client";
 import { api } from "@/lib/api";
 import { errorMessage } from "@/lib/format";
 import { useRequireAuth } from "@/components/auth";
@@ -20,6 +20,16 @@ export default function KelasPage() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ academicYearId: "", name: "", gradeLevel: 1, homeroomTeacherId: "" });
   const [saving, setSaving] = useState(false);
+  const [teachers, setTeachers] = useState<UserItem[]>([]);
+
+  function openForm() {
+    setForm({ academicYearId: yearFilter || "", name: "", gradeLevel: 1, homeroomTeacherId: "" });
+    setShowForm(true);
+    void api().users.list({ role: "TEACHER", limit: 100 }).then(
+      (r) => setTeachers(r.data),
+      () => setTeachers([]),
+    );
+  }
 
   const load = useCallback(async (p: number, yearId: string) => {
     setLoading(true);
@@ -71,7 +81,7 @@ export default function KelasPage() {
 
   return (
     <>
-      <PageHeader title="Kelas" subtitle="Kelola kelas per tahun ajaran" actions={<Button onClick={() => setShowForm(true)}>+ Kelas</Button>} />
+      <PageHeader title="Kelas" subtitle="Kelola kelas per tahun ajaran" actions={<Button onClick={openForm}>+ Kelas</Button>} />
       <Alert kind="error">{error}</Alert>
       <Card>
         <div className="toolbar">
@@ -113,8 +123,11 @@ export default function KelasPage() {
                 <input type="number" min={1} max={6} value={form.gradeLevel} onChange={(e) => setForm({ ...form, gradeLevel: Number(e.target.value) })} />
               </Field>
             </div>
-            <Field label="ID wali kelas (opsional)" hint="UUID user guru. Backend belum menyediakan daftar user, jadi isi manual bila perlu.">
-              <input type="text" value={form.homeroomTeacherId} onChange={(e) => setForm({ ...form, homeroomTeacherId: e.target.value })} placeholder="UUID guru" />
+            <Field label="Wali kelas (opsional)">
+              <select value={form.homeroomTeacherId} onChange={(e) => setForm({ ...form, homeroomTeacherId: e.target.value })}>
+                <option value="">— Tanpa wali kelas —</option>
+                {teachers.map((t) => <option key={t.id} value={t.id}>{t.fullName} ({t.email})</option>)}
+              </select>
             </Field>
             <div className="btn-row">
               <Button type="submit" disabled={saving}>{saving ? "Menyimpan..." : "Simpan"}</Button>
