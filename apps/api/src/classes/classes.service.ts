@@ -53,7 +53,22 @@ export class ClassesService {
         take: params.limit,
       }),
     ]);
-    return buildPaginated(data.map(toClassJson), total, params);
+    const classIds = data.map((d) => d.id);
+    const counts = classIds.length
+      ? await this.prisma.studentEnrollment.groupBy({
+          by: ["classId"],
+          where: { classId: { in: classIds }, status: "ACTIVE" },
+          _count: { _all: true },
+        })
+      : [];
+    const countMap = new Map(counts.map((c) => [c.classId, c._count._all]));
+    return buildPaginated(
+      data.map((d) =>
+        toClassJson({ ...d, _count: { enrollments: countMap.get(d.id) ?? 0 } }),
+      ),
+      total,
+      params,
+    );
   }
 
   async create(user: SessionUser, dto: CreateClassDto, req: Request) {
@@ -196,6 +211,7 @@ export function toClassJson(c: {
   name: string;
   gradeLevel: number;
   homeroomTeacherId: string | null;
+  _count?: { enrollments: number };
 }) {
   return {
     id: c.id,
@@ -203,5 +219,6 @@ export function toClassJson(c: {
     name: c.name,
     gradeLevel: c.gradeLevel,
     homeroomTeacherId: c.homeroomTeacherId,
+    studentCount: c._count?.enrollments ?? 0,
   };
 }

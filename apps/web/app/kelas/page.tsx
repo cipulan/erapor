@@ -25,10 +25,6 @@ export default function KelasPage() {
   function openForm() {
     setForm({ academicYearId: yearFilter || "", name: "", gradeLevel: 1, homeroomTeacherId: "" });
     setShowForm(true);
-    void api().users.list({ role: "TEACHER", limit: 100 }).then(
-      (r) => setTeachers(r.data),
-      () => setTeachers([]),
-    );
   }
 
   const load = useCallback(async (p: number, yearId: string) => {
@@ -54,6 +50,10 @@ export default function KelasPage() {
       setYearFilter(yid);
       void load(1, yid);
     }).catch((err) => { setError(errorMessage(err)); setLoading(false); });
+    void api().users.list({ role: "TEACHER", limit: 100 }).then(
+      (r) => setTeachers(r.data),
+      () => setTeachers([]),
+    );
   }, [load]);
 
   async function onCreate(e: React.FormEvent) {
@@ -98,11 +98,13 @@ export default function KelasPage() {
               { key: "name", label: "Nama", render: (c) => c.name },
               { key: "gradeLevel", label: "Tingkat", render: (c) => c.gradeLevel },
               { key: "academicYear", label: "Tahun ajaran", render: (c) => years.find((y) => y.id === c.academicYearId)?.name ?? "-" },
+              { key: "homeroom", label: "Wali kelas", render: (c) => teachers.find((t) => t.id === c.homeroomTeacherId)?.fullName ?? "—" },
+              { key: "studentCount", label: "Jml siswa", render: (c) => c.studentCount },
             ]}
             rows={rows}
             rowKey={(c) => c.id}
             title={(c) => c.name}
-            subtitle={(c) => `Tingkat ${c.gradeLevel} · ${years.find((y) => y.id === c.academicYearId)?.name ?? "-"}`}
+            subtitle={(c) => `${teachers.find((t) => t.id === c.homeroomTeacherId)?.fullName ?? "Tanpa wali kelas"} · ${c.studentCount} siswa`}
           />
         )}
         <Pagination page={page} totalPages={meta.totalPages} total={meta.total} onPage={(p) => void load(p, yearFilter)} />

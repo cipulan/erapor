@@ -232,6 +232,7 @@ export interface ClassItem {
   name: string;
   gradeLevel: number;
   homeroomTeacherId: string | null;
+  studentCount: number;
 }
 export interface CreateClassInput {
   academicYearId: string;
