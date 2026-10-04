@@ -246,3 +246,12 @@ textarea { min-height: 80px; resize: vertical; }
 .score-input { max-width: 90px; }
 .score-input.invalid { border-color: var(--danger); background: #fdf0ee; }
 pre.debug { background: #0f172a; color: #dbe4f5; padding: 12px; border-radius: 8px; overflow-x: auto; font-size: 12px; }
+
+/* ---------- dashboard: cegah kartu bertumpuk di layar kecil ---------- */
+.dash-pipe { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.dash-links { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+@media (max-width: 700px) {
+  .grid.dash-stack { grid-template-columns: 1fr !important; }
+  .dash-pipe { grid-template-columns: repeat(2, 1fr); }
+  .dash-links { grid-template-columns: 1fr; }
+}

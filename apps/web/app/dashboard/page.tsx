@@ -137,7 +137,7 @@ function AdminDashboard({ userName }: { userName: string }) {
         <KpiCard icon="🎯" value={stats?.kktp.percent == null ? "—" : `${fmt(stats.kktp.percent)}%`} label="Ketuntasan KKTP" sub="siswa tuntas" gradient="linear-gradient(135deg,#10b981,#34d399)" />
       </div>
 
-      <div className="grid cols-2" style={{ marginBottom: 20 }}>
+      <div className="grid cols-2 dash-stack" style={{ marginBottom: 20 }}>
         <div style={CARD}>
           <SectionTitle sub="Rata-rata nilai akhir · semester berjalan">🏆 Peringkat Mata Pelajaran</SectionTitle>
           {(!stats || stats.avgPerSubject.length === 0) && (
@@ -171,10 +171,10 @@ function AdminDashboard({ userName }: { userName: string }) {
         </div>
       </div>
 
-      <div className="grid cols-3" style={{ marginBottom: 20 }}>
+      <div className="grid cols-3 dash-stack" style={{ marginBottom: 20 }}>
         <div style={CARD}>
           <SectionTitle sub={`${Object.values(stats?.reportsByStatus ?? {}).reduce((a, b) => a + b, 0)} rapor semester ini`}>📄 Perjalanan Rapor</SectionTitle>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+          <div className="dash-pipe">
             {[
               { n: stats?.reportsByStatus.DRAFT ?? 0, l: "📝 Draft", g: "linear-gradient(135deg,#94a3b8,#64748b)" },
               { n: stats?.reportsByStatus.REVIEW ?? 0, l: "👀 Review", g: "linear-gradient(135deg,#fbbf24,#f59e0b)" },
@@ -295,7 +295,7 @@ function TeacherDashboard({ userName }: { userName: string }) {
       </div>
       <div style={CARD}>
         <SectionTitle sub="Aksi cepat">⚡ Jalan Pintas</SectionTitle>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+        <div className="dash-links">
           {links.map((l) => (
             <Link key={l.href} href={l.href} style={{ textDecoration: "none" }}>
               <div style={{ borderRadius: 18, padding: 14, color: "#fff", background: l.g, fontSize: 13, fontWeight: 800 }}>
@@ -330,7 +330,7 @@ function ParentDashboard({ userName }: { userName: string }) {
         {children.length === 0 ? (
           <p style={{ color: "#94a3b8", fontSize: 13 }}>Belum ada data anak yang terhubung dengan akun ini.</p>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+          <div className="dash-links">
             {children.map((s, i) => (
               <Link key={s.id} href={`/rapor?studentId=${s.id}`} style={{ textDecoration: "none" }}>
                 <div style={{
