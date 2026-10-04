@@ -73,6 +73,7 @@ export type {
   UpdateSchoolInput,
   UpdateStudentInput,
   UpdateUserInput,
+  UpdateUserRoleInput,
   UpsertKktpInput,
   UserItem,
   UserProfile,

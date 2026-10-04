@@ -65,3 +65,11 @@ export class UpdateUserDto {
   @IsEmail({}, { message: "Format email tidak valid." })
   email?: string;
 }
+
+/** PATCH /users/:id/role — admin promote/demote role akun (termasuk SUPERADMIN). */
+export class UpdateUserRoleDto {
+  @IsIn(["TEACHER", "PARENT", "SUPERADMIN"], {
+    message: "Role harus TEACHER, PARENT, atau SUPERADMIN.",
+  })
+  role!: "TEACHER" | "PARENT" | "SUPERADMIN";
+}

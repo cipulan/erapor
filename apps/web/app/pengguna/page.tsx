@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { ManageableRole, UserItem } from "@erapor/api-client";
+import type { ManageableRole, UserItem, UserRole } from "@erapor/api-client";
 import { api } from "@/lib/api";
 import { errorMessage, formatDateTime } from "@/lib/format";
 import { useRequireAuth } from "@/components/auth";
@@ -12,11 +12,13 @@ import {
 } from "@/components/ui";
 import { ResponsiveTable } from "@/components/responsive-table";
 
-type Tab = ManageableRole;
+type Tab = UserRole;
 const TABS: { key: Tab; label: string }[] = [
   { key: "TEACHER", label: "Guru" },
   { key: "PARENT", label: "Wali" },
+  { key: "SUPERADMIN", label: "Superadmin" },
 ];
+const TAB_PARAM: Record<Tab, string> = { TEACHER: "guru", PARENT: "wali", SUPERADMIN: "superadmin" };
 
 function randomPassword(): string {
   const alphabet = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -36,7 +38,8 @@ function PenggunaInner() {
   const { loading: authLoading } = useRequireAuth(["SUPERADMIN"]);
   const searchParams = useSearchParams();
   const router = useRouter();
-  const tabFromUrl: Tab = searchParams.get("tab") === "wali" ? "PARENT" : "TEACHER";
+  const tabParam = searchParams.get("tab");
+  const tabFromUrl: Tab = tabParam === "wali" ? "PARENT" : tabParam === "superadmin" ? "SUPERADMIN" : "TEACHER";
   const [tab, setTab] = useState<Tab>(tabFromUrl);
   const [rows, setRows] = useState<UserItem[]>([]);
   const [page, setPage] = useState(1);
@@ -72,7 +75,7 @@ function PenggunaInner() {
   }, [tabFromUrl]);
 
   function switchTab(t: Tab) {
-    router.replace(`/pengguna?tab=${t === "PARENT" ? "wali" : "guru"}`);
+    router.replace(`/pengguna?tab=${TAB_PARAM[t]}`);
   }
 
   // ---------- modal tambah ----------
@@ -100,7 +103,7 @@ function PenggunaInner() {
       const r = await api().users.create({
         fullName: addName.trim(),
         email: addEmail.trim(),
-        role: tab,
+        role: tab as ManageableRole,
         ...(addPw ? { password: addPw } : {}),
       });
       setAddResult(r.generatedPassword ?? null);
@@ -198,15 +201,41 @@ function PenggunaInner() {
     }
   }
 
+  // ---------- modal ubah role (promote/demote) ----------
+  const [roleTarget, setRoleTarget] = useState<UserItem | null>(null);
+  const [roleBusy, setRoleBusy] = useState(false);
+  const [roleError, setRoleError] = useState("");
+
+  function openRole(u: UserItem) {
+    setRoleTarget(u);
+    setRoleError("");
+  }
+
+  async function submitRole(newRole: UserRole) {
+    if (!roleTarget) return;
+    setRoleError("");
+    setRoleBusy(true);
+    try {
+      await api().users.updateRole(roleTarget.id, { role: newRole });
+      setRoleTarget(null);
+      setSuccess(`Role ${roleTarget.fullName} berhasil diubah.`);
+      void load(tab, q, page);
+    } catch (err) {
+      setRoleError(errorMessage(err));
+    } finally {
+      setRoleBusy(false);
+    }
+  }
+
   if (authLoading) return <Spinner />;
-  const tabLabel = tab === "TEACHER" ? "guru" : "wali";
+  const tabLabel = tab === "TEACHER" ? "guru" : tab === "PARENT" ? "wali" : "superadmin";
 
   return (
     <>
       <PageHeader
         title="Pengguna"
         subtitle="Kelola akun guru dan wali — hanya superadmin"
-        actions={<Button onClick={openAdd}>+ Tambah {tab === "TEACHER" ? "Guru" : "Wali"}</Button>}
+        actions={tab === "SUPERADMIN" ? undefined : <Button onClick={openAdd}>+ Tambah {tab === "TEACHER" ? "Guru" : "Wali"}</Button>}
       />
       <Alert kind="error">{error}</Alert>
       <Alert kind="success">{success}</Alert>
@@ -249,6 +278,11 @@ function PenggunaInner() {
                 render: (u) => (
                   <div className="btn-row">
                     <Button small variant="secondary" onClick={() => openEdit(u)}>Ubah</Button>
+                    {u.role === "SUPERADMIN" ? (
+                      <Button small variant="secondary" onClick={() => openRole(u)}>Turunkan Role</Button>
+                    ) : (
+                      <Button small variant="secondary" onClick={() => openRole(u)}>Jadikan Superadmin</Button>
+                    )}
                     <Button small variant="secondary" onClick={() => openReset(u)}>Reset password</Button>
                     <Button
                       small
@@ -387,6 +421,34 @@ function PenggunaInner() {
             </Button>
             <Button variant="secondary" onClick={() => setConfirmTarget(null)} disabled={confirmBusy}>Batal</Button>
           </div>
+        </Modal>
+      )}
+
+      {roleTarget && (
+        <Modal
+          title={roleTarget.role === "SUPERADMIN" ? `Turunkan role — ${roleTarget.fullName}` : `Jadikan superadmin — ${roleTarget.fullName}`}
+          onClose={() => { if (!roleBusy) setRoleTarget(null); }}
+        >
+          {roleTarget.role === "SUPERADMIN" ? (
+            <>
+              <p>Akun <strong>{roleTarget.fullName}</strong> ({roleTarget.email}) akan kehilangan akses superadmin. Pilih role baru:</p>
+              <Alert kind="error">{roleError}</Alert>
+              <div className="btn-row">
+                <Button variant="warn" onClick={() => void submitRole("TEACHER")} disabled={roleBusy}>{roleBusy ? "Memproses..." : "Jadikan Guru"}</Button>
+                <Button variant="warn" onClick={() => void submitRole("PARENT")} disabled={roleBusy}>{roleBusy ? "Memproses..." : "Jadikan Wali"}</Button>
+                <Button variant="secondary" onClick={() => setRoleTarget(null)} disabled={roleBusy}>Batal</Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p>Akun <strong>{roleTarget.fullName}</strong> ({roleTarget.email}) akan mendapatkan <strong>akses penuh superadmin</strong> ke seluruh data dan pengaturan sekolah.</p>
+              <Alert kind="error">{roleError}</Alert>
+              <div className="btn-row">
+                <Button onClick={() => void submitRole("SUPERADMIN")} disabled={roleBusy}>{roleBusy ? "Memproses..." : "Ya, Jadikan Superadmin"}</Button>
+                <Button variant="secondary" onClick={() => setRoleTarget(null)} disabled={roleBusy}>Batal</Button>
+              </div>
+            </>
+          )}
         </Modal>
       )}
     </>

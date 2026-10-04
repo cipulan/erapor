@@ -35,6 +35,7 @@ import type {
   ManageableRole,
   MessageResult,
   Paginated,
+  UserRole,
   PromoteClassInput,
   PromotionResult,
   ReplaceWeightsInput,
@@ -53,6 +54,7 @@ import type {
   UpdateSchoolInput,
   UpdateStudentInput,
   UpdateUserInput,
+  UpdateUserRoleInput,
   UpsertKktpInput,
   UserItem,
   UserProfile,
@@ -195,7 +197,7 @@ export function createApiClient(options: ClientOptions) {
 
     // ---- Pengguna (khusus SUPERADMIN) ----
     users: {
-      list: (params: PageParams & { role: ManageableRole; q?: string }) =>
+      list: (params: PageParams & { role: UserRole; q?: string }) =>
         get<Paginated<UserItem>>(`/users${buildQuery(params)}`),
       create: (data: CreateUserInput) => post<CreateUserResult>("/users", data),
       resetPassword: (id: string, data?: ResetPasswordInput) =>
@@ -204,6 +206,8 @@ export function createApiClient(options: ClientOptions) {
         patch<UserSummary>(`/users/${id}`, { isActive }),
       updateProfile: (id: string, data: UpdateUserInput) =>
         patch<UserSummary>(`/users/${id}/profile`, data),
+      updateRole: (id: string, data: UpdateUserRoleInput) =>
+        patch<UserSummary>(`/users/${id}/role`, data),
     },
 
     // ---- Tahun ajaran & semester ----

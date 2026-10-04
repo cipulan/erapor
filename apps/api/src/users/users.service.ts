@@ -11,11 +11,11 @@ import { generatePassword, hashPassword, verifyPassword } from "../auth/crypto";
 import {
   ChangePasswordDto,
   CreateUserDto,
-  MANAGEABLE_ROLES,
   ResetPasswordDto,
   SetUserActiveDto,
   UpdateProfileDto,
   UpdateUserDto,
+  UpdateUserRoleDto,
 } from "./dto/user.dto";
 
 const profileSelect = {
@@ -149,16 +149,34 @@ export class UsersService {
 
   // ---------- Admin: kelola akun guru/wali ----------
 
-  /** Target admin hanya TEACHER/PARENT dalam sekolah yang sama; selain itu 404. */
-  private async manageableTarget(admin: SessionUser, id: string) {
+  /** Target kelola antar-admin: boleh role apapun (termasuk SUPERADMIN), tetap satu sekolah. */
+  private async anyTarget(admin: SessionUser, id: string) {
     const target = await this.prisma.user.findFirst({
       where: { id, schoolId: admin.schoolId },
       select: { id: true, email: true, fullName: true, role: true, isActive: true },
     });
-    if (!target || target.role === "SUPERADMIN") {
+    if (!target) {
       throw Errors.notFound("Pengguna");
     }
     return target;
+  }
+
+  /** Sekolah tidak boleh kehabisan superadmin aktif. */
+  private async assertNotLastActiveSuperadmin(admin: SessionUser, targetId: string) {
+    const others = await this.prisma.user.count({
+      where: {
+        schoolId: admin.schoolId,
+        role: "SUPERADMIN",
+        isActive: true,
+        id: { not: targetId },
+      },
+    });
+    if (others === 0) {
+      throw Errors.validation(
+        ApiErrorCode.VALIDATION_ERROR,
+        "Tidak dapat memproses: sekolah harus memiliki minimal satu superadmin aktif.",
+      );
+    }
   }
 
   async listUsers(
@@ -167,16 +185,17 @@ export class UsersService {
     role: string | undefined,
     q: string | undefined,
   ): Promise<Paginated<unknown>> {
-    if (!role || !(MANAGEABLE_ROLES as readonly string[]).includes(role)) {
+    const ALLOWED_ROLES = ["TEACHER", "PARENT", "SUPERADMIN"] as const;
+    if (!role || !(ALLOWED_ROLES as readonly string[]).includes(role)) {
       throw Errors.validation(
         ApiErrorCode.VALIDATION_ERROR,
-        "Parameter role wajib diisi: TEACHER atau PARENT.",
+        "Parameter role wajib diisi: TEACHER, PARENT, atau SUPERADMIN.",
       );
     }
     const keyword = q?.trim();
     const where = {
       schoolId: user.schoolId,
-      role: role as "TEACHER" | "PARENT",
+      role: role as "TEACHER" | "PARENT" | "SUPERADMIN",
       ...(keyword
         ? {
             OR: [
@@ -240,7 +259,13 @@ export class UsersService {
   }
 
   async resetPassword(admin: SessionUser, id: string, dto: ResetPasswordDto, req: Request) {
-    const target = await this.manageableTarget(admin, id);
+    if (id === admin.id) {
+      throw Errors.validation(
+        ApiErrorCode.VALIDATION_ERROR,
+        "Gunakan menu Profil untuk mengganti password akun sendiri.",
+      );
+    }
+    const target = await this.anyTarget(admin, id);
     const generated = !dto.newPassword || dto.newPassword.length === 0;
     const newPassword = generated ? generatePassword(12) : dto.newPassword!;
     await this.prisma.user.update({
@@ -270,7 +295,10 @@ export class UsersService {
         "Anda tidak dapat menonaktifkan akun sendiri.",
       );
     }
-    const target = await this.manageableTarget(admin, id);
+    const target = await this.anyTarget(admin, id);
+    if (target.role === "SUPERADMIN" && !dto.isActive) {
+      await this.assertNotLastActiveSuperadmin(admin, target.id);
+    }
     const updated = await this.prisma.user.update({
       where: { id: target.id },
       data: { isActive: dto.isActive },
@@ -296,7 +324,13 @@ export class UsersService {
 
   /** Admin (SUPERADMIN) mengubah nama/email akun guru/wali. */
   async updateUser(admin: SessionUser, id: string, dto: UpdateUserDto, req: Request) {
-    const target = await this.manageableTarget(admin, id);
+    if (id === admin.id) {
+      throw Errors.validation(
+        ApiErrorCode.VALIDATION_ERROR,
+        "Gunakan menu Profil untuk mengubah data akun sendiri.",
+      );
+    }
+    const target = await this.anyTarget(admin, id);
     const data: { fullName?: string; email?: string } = {};
     if (dto.fullName !== undefined) data.fullName = dto.fullName.trim();
     if (dto.email !== undefined) {
@@ -328,6 +362,39 @@ export class UsersService {
       entityId: target.id,
       beforeJson: before,
       afterJson: data,
+    });
+    return updated;
+  }
+
+  /** Admin (SUPERADMIN) promote/demote role akun — termasuk antar-superadmin. */
+  async updateRole(admin: SessionUser, id: string, dto: UpdateUserRoleDto, req: Request) {
+    if (id === admin.id) {
+      throw Errors.validation(
+        ApiErrorCode.VALIDATION_ERROR,
+        "Anda tidak dapat mengubah role akun sendiri.",
+      );
+    }
+    const target = await this.anyTarget(admin, id);
+    if (target.role === dto.role) {
+      throw Errors.validation(ApiErrorCode.VALIDATION_ERROR, "Role akun sudah sama.");
+    }
+    if (target.role === "SUPERADMIN" && dto.role !== "SUPERADMIN") {
+      await this.assertNotLastActiveSuperadmin(admin, target.id);
+    }
+    const updated = await this.prisma.user.update({
+      where: { id: target.id },
+      data: { role: dto.role },
+      select: { id: true, email: true, fullName: true, role: true, isActive: true },
+    });
+    await this.audit.log({
+      req,
+      schoolId: admin.schoolId,
+      actorUserId: admin.id,
+      action: AuditAction.USER_ROLE_UPDATE,
+      entityType: "User",
+      entityId: target.id,
+      beforeJson: { role: target.role },
+      afterJson: { role: dto.role },
     });
     return updated;
   }

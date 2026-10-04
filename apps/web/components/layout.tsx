@@ -13,7 +13,7 @@ interface NavItem {
   /** Nama ikon SVG yang ditampilkan di sidebar. */
   icon: string;
   /** Untuk submenu tab di halaman yang sama (mis. /pengguna?tab=guru). */
-  tab?: "guru" | "wali";
+  tab?: "guru" | "wali" | "superadmin";
 }
 interface NavGroup {
   title: string;
@@ -40,6 +40,7 @@ const ICON_PATHS: Record<string, string> = {
   file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
   trend: '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
   clock: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
 };
 
 function NavIcon({ name, size = 17 }: { name: string; size?: number }) {
@@ -72,6 +73,7 @@ const NAV: NavGroup[] = [
     items: [
       { href: "/pengguna", tab: "guru", label: "Guru", icon: "briefcase", roles: ["SUPERADMIN"] },
       { href: "/pengguna", tab: "wali", label: "Wali", icon: "heart", roles: ["SUPERADMIN"] },
+      { href: "/pengguna", tab: "superadmin", label: "Superadmin", icon: "shield", roles: ["SUPERADMIN"] },
     ],
   },
   {

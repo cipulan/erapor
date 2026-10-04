@@ -124,6 +124,10 @@ export interface UpdateUserInput {
   email?: string;
 }
 
+export interface UpdateUserRoleInput {
+  role: UserRole;
+}
+
 export type AcademicYearStatus = "DRAFT" | "ACTIVE" | "ARCHIVED";
 export interface AcademicYear {
   id: string;
