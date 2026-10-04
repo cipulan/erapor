@@ -52,6 +52,38 @@ export interface UpdateSchoolInput {
   headmasterNip?: string;
 }
 
+export interface DashboardSubjectAvg {
+  name: string;
+  avg: number;
+}
+
+export interface DashboardClassAvg {
+  classId: string;
+  name: string;
+  studentCount: number;
+  avg: number | null;
+}
+
+export interface DashboardActivity {
+  id: string;
+  actorName: string;
+  action: string;
+  label: string;
+  createdAt: string;
+}
+
+export interface DashboardStats {
+  academicYear: { id: string; name: string } | null;
+  semester: { id: string; name: string } | null;
+  totals: { students: number; teachers: number; classes: number; assessments: number };
+  avgScore: number | null;
+  kktp: { achieved: number; notAchieved: number; percent: number | null };
+  reportsByStatus: { DRAFT: number; REVIEW: number; LOCKED: number; PUBLISHED: number; REVISION: number };
+  avgPerSubject: DashboardSubjectAvg[];
+  avgPerClass: DashboardClassAvg[];
+  recentActivity: DashboardActivity[];
+}
+
 export interface UpdateProfileInput {
   fullName: string;
 }

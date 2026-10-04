@@ -14,6 +14,7 @@ import {
   UpdateProfileDto,
 } from "../src/users/dto/user.dto";
 import { UpdateSchoolDto } from "../src/school/dto/school.dto";
+import { DashboardStatsQueryDto } from "../src/dashboard/dto/dashboard.dto";
 
 describe("generatePassword", () => {
   it("menghasilkan password 12 karakter secara default", () => {
@@ -187,5 +188,19 @@ describe("UpdateSchoolDto", () => {
     dto.headmasterNip = "19650101 199003 1 002";
     const errors = await validate(dto);
     expect(errors).toHaveLength(0);
+  });
+});
+
+describe("DashboardStatsQueryDto", () => {
+  it("menerima query kosong (default tahun ajaran aktif)", async () => {
+    const dto = new DashboardStatsQueryDto();
+    expect(await validate(dto)).toHaveLength(0);
+  });
+
+  it("menolak academicYearId yang bukan UUID", async () => {
+    const dto = new DashboardStatsQueryDto();
+    dto.academicYearId = "bukan-uuid";
+    const errors = await validate(dto);
+    expect(errors.some((e) => e.property === "academicYearId")).toBe(true);
   });
 });

@@ -22,6 +22,7 @@ import type {
   CreateTpInput,
   CreateUserInput,
   CreateUserResult,
+  DashboardStats,
   ErrorBody,
   GenerateReportCardInput,
   GradePreview,
@@ -182,6 +183,12 @@ export function createApiClient(options: ClientOptions) {
     school: {
       get: () => get<SchoolProfile>("/school"),
       update: (data: UpdateSchoolInput) => put<SchoolProfile>("/school", data),
+    },
+
+    // ---- Dashboard (khusus SUPERADMIN) ----
+    dashboard: {
+      stats: (params?: { academicYearId?: string; semesterId?: string }) =>
+        get<DashboardStats>(`/dashboard/stats${buildQuery(params ?? {})}`),
     },
 
     // ---- Pengguna (khusus SUPERADMIN) ----

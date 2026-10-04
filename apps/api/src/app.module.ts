@@ -25,6 +25,7 @@ import { ReportsModule } from "./reports/reports.module";
 import { AuditQueryModule } from "./audit/audit.controller";
 import { DocsModule } from "./docs/docs.module";
 import { SchoolModule } from "./school/school.module";
+import { DashboardModule } from "./dashboard/dashboard.module";
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { SchoolModule } from "./school/school.module";
     AuditQueryModule,
     DocsModule,
     SchoolModule,
+    DashboardModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: SessionAuthGuard },

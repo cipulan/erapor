@@ -84,6 +84,20 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '422': { $ref: '#/components/responses/ValidationError' }
 
+  /dashboard/stats:
+    get:
+      tags: [Dashboard]
+      operationId: getDashboardStats
+      summary: Agregat statistik dashboard (khusus Superadmin)
+      parameters:
+        - { name: academicYearId, in: query, schema: { $ref: '#/components/schemas/UUID' } }
+        - { name: semesterId, in: query, schema: { $ref: '#/components/schemas/UUID' } }
+      responses:
+        '200': { description: Statistik dashboard, content: { application/json: { schema: { $ref: '#/components/schemas/DashboardStats' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /profile:
     get:
       tags: [Users]
@@ -743,6 +757,19 @@ components:
         email: { type: string, format: email }
         headmasterName: { type: string }
         headmasterNip: { type: string }
+
+    DashboardStats:
+      type: object
+      properties:
+        academicYear: { type: object, nullable: true, properties: { id: { $ref: '#/components/schemas/UUID' }, name: { type: string } } }
+        semester: { type: object, nullable: true, properties: { id: { $ref: '#/components/schemas/UUID' }, name: { type: string } } }
+        totals: { type: object, properties: { students: { type: integer }, teachers: { type: integer }, classes: { type: integer }, assessments: { type: integer } } }
+        avgScore: { type: number, nullable: true }
+        kktp: { type: object, properties: { achieved: { type: integer }, notAchieved: { type: integer }, percent: { type: number, nullable: true } } }
+        reportsByStatus: { type: object, properties: { DRAFT: { type: integer }, REVIEW: { type: integer }, LOCKED: { type: integer }, PUBLISHED: { type: integer }, REVISION: { type: integer } } }
+        avgPerSubject: { type: array, items: { type: object, properties: { name: { type: string }, avg: { type: number } } } }
+        avgPerClass: { type: array, items: { type: object, properties: { classId: { $ref: '#/components/schemas/UUID' }, name: { type: string }, studentCount: { type: integer }, avg: { type: number, nullable: true } } } }
+        recentActivity: { type: array, items: { type: object, properties: { id: { $ref: '#/components/schemas/UUID' }, actorName: { type: string }, action: { type: string }, label: { type: string }, createdAt: { type: string, format: date-time } } } }
     AuthMe:
       type: object
       required: [user]
