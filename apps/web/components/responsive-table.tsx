@@ -93,7 +93,17 @@ export function ResponsiveTable<T>({
       {openRow && (
         <>
           <div className="rt-backdrop" onClick={() => setOpenKey(null)} aria-hidden="true" />
-          <div className="rt-sheet" role="dialog" aria-modal="true">
+          <div
+            className="rt-sheet"
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => {
+              // Ketuk link/tombol apapun di dalam sheet -> tutup sheet dulu,
+              // supaya modal/halaman tujuan tidak tertutup panel.
+              const t = e.target as HTMLElement;
+              if (t.closest("a,button")) setOpenKey(null);
+            }}
+          >
             <div className="rt-grab" aria-hidden="true" />
             <div className="rt-sheet-title">{title(openRow)}</div>
             {subtitle && <div className="rt-sheet-sub">{subtitle(openRow)}</div>}
