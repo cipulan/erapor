@@ -99,6 +99,21 @@ export default function SkemaDetailPage({ params }: { params: Promise<{ id: stri
     }
   }
 
+  async function onUnpublish() {
+    if (!confirm("Batalkan publish? Skema kembali menjadi DRAFT dan bobot bisa diubah lagi.")) return;
+    setError(""); setSuccess("");
+    setSaving(true);
+    try {
+      const s = await api().gradingSchemes.unpublish(id);
+      setScheme(s);
+      setSuccess("Publish dibatalkan — skema kembali menjadi DRAFT.");
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (authLoading || loading) return <Spinner />;
 
   return (
@@ -106,7 +121,13 @@ export default function SkemaDetailPage({ params }: { params: Promise<{ id: stri
       <PageHeader
         title="Kelola Bobot Skema"
         subtitle={scheme ? `Status: ${scheme.status}` : undefined}
-        actions={editable ? <Button variant="success" onClick={() => void onPublish()} disabled={saving}>Publish</Button> : undefined}
+        actions={
+          editable ? (
+            <Button variant="success" onClick={() => void onPublish()} disabled={saving}>Publish</Button>
+          ) : scheme?.status === "PUBLISHED" ? (
+            <Button variant="secondary" onClick={() => void onUnpublish()} disabled={saving}>Batalkan Publish</Button>
+          ) : undefined
+        }
       />
       <Alert kind="error">{error}</Alert>
       <Alert kind="success">{success}</Alert>
@@ -119,7 +140,7 @@ export default function SkemaDetailPage({ params }: { params: Promise<{ id: stri
           actions={scheme.status === "PUBLISHED" ? <span className="small muted">Dipublish {formatDateTime(scheme.publishedAt)}</span> : <Badge status={scheme.status} />}
         >
           {!editable && (
-            <Alert kind="info">Skema sudah {scheme.status === "PUBLISHED" ? "di-publish" : "diarsipkan"} — bobot tidak dapat diubah. Buat skema baru bila perlu perubahan.</Alert>
+            <Alert kind="info">Skema berstatus Terbit sehingga bobot dikunci. Untuk mengubah, batalkan dulu publish-nya via tombol di atas — hanya bisa bila belum ada nilai yang diinput pada semester ini.</Alert>
           )}
           <div className="table-wrap">
             <table className="tbl">

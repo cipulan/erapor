@@ -286,6 +286,7 @@ export function createApiClient(options: ClientOptions) {
       replaceWeights: (id: string, data: ReplaceWeightsInput) =>
         put<GradingScheme>(`/grading-schemes/${id}/weights`, data),
       publish: (id: string) => post<GradingScheme>(`/grading-schemes/${id}/publish`),
+      unpublish: (id: string) => post<GradingScheme>(`/grading-schemes/${id}/unpublish`),
     },
     kktp: {
       list: (params?: { academicYearId?: string; semesterId?: string; subjectId?: string }) =>

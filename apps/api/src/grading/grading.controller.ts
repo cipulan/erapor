@@ -40,6 +40,13 @@ export class GradingController {
     return this.service.publishScheme(user, id, req);
   }
 
+  @Post("grading-schemes/:id/unpublish")
+  @HttpCode(200)
+  @Roles("SUPERADMIN")
+  async unpublishScheme(@CurrentUser() user: SessionUser, @Param("id") id: string, @Req() req: Request) {
+    return this.service.unpublishScheme(user, id, req);
+  }
+
   @Get("kktp-configurations")
   @Roles("SUPERADMIN", "TEACHER")
   async listKktp(@CurrentUser() user: SessionUser, @Query() query: Record<string, string>) {

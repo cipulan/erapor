@@ -173,6 +173,45 @@ export class GradingService {
     return toSchemeJson(published);
   }
 
+  /**
+   * Batalkan publish: PUBLISHED -> DRAFT. Hanya bila belum ada nilai yang
+   * diinput pada semester tersebut — bobot belum dipakai menghitung nilai.
+   */
+  async unpublishScheme(user: SessionUser, schemeId: string, req: Request) {
+    const scheme = await this.policy.gradingSchemeInSchool(user.schoolId, schemeId);
+    if (scheme.status !== "PUBLISHED") {
+      throw Errors.conflict(
+        ApiErrorCode.GRADING_SCHEME_PUBLISHED,
+        "Hanya skema berstatus Terbit yang dapat dibatalkan publish-nya.",
+      );
+    }
+    const scoreCount = await this.prisma.assessmentScore.count({
+      where: { assessment: { semesterId: scheme.semesterId } },
+    });
+    if (scoreCount > 0) {
+      throw Errors.conflict(
+        ApiErrorCode.GRADING_SCHEME_PUBLISHED,
+        "Tidak dapat dibatalkan: sudah ada nilai yang diinput pada semester ini.",
+      );
+    }
+    const updated = await this.prisma.gradingScheme.update({
+      where: { id: scheme.id },
+      data: { status: "DRAFT", publishedAt: null },
+      include: { weights: { include: { category: true } } },
+    });
+    await this.audit.log({
+      req,
+      schoolId: user.schoolId,
+      actorUserId: user.id,
+      action: AuditAction.GRADING_SCHEME_UNPUBLISH,
+      entityType: "GradingScheme",
+      entityId: scheme.id,
+      beforeJson: { status: "PUBLISHED" },
+      afterJson: { status: "DRAFT" },
+    });
+    return toSchemeJson(updated);
+  }
+
   // ------------------------------------------------------------------
   // KKTP
   // ------------------------------------------------------------------
