@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { errorMessage } from "@/lib/format";
 import { useRequireAuth } from "@/components/auth";
 import { Alert, Button, Card, Field, Modal, PageHeader, Spinner, EmptyState } from "@/components/ui";
+import { ResponsiveTable } from "@/components/responsive-table";
 
 export default function KktpPage() {
   const { loading: authLoading } = useRequireAuth(["SUPERADMIN"]);
@@ -115,21 +116,18 @@ export default function KktpPage() {
           </Field>
         </div>
         {loading ? <Spinner /> : rows.length === 0 ? <EmptyState /> : (
-          <div className="table-wrap">
-            <table className="tbl">
-              <thead><tr><th>Mapel</th><th>Semester</th><th>Threshold</th><th>Keterangan</th></tr></thead>
-              <tbody>
-                {rows.map((k) => (
-                  <tr key={k.id}>
-                    <td>{nameOf(subjects, k.subjectId)}</td>
-                    <td>{nameOf(semesters, k.semesterId)}</td>
-                    <td><strong>{k.threshold}</strong></td>
-                    <td>{k.description ?? "-"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ResponsiveTable<KktpConfiguration>
+            columns={[
+              { key: "subject", label: "Mapel", render: (k) => nameOf(subjects, k.subjectId) },
+              { key: "semester", label: "Semester", render: (k) => nameOf(semesters, k.semesterId) },
+              { key: "threshold", label: "Threshold", render: (k) => <strong>{k.threshold}</strong> },
+              { key: "description", label: "Keterangan", render: (k) => k.description ?? "-" },
+            ]}
+            rows={rows}
+            rowKey={(k) => k.id}
+            title={(k) => nameOf(subjects, k.subjectId)}
+            subtitle={(k) => `${nameOf(semesters, k.semesterId)} · KKTP ${k.threshold}`}
+          />
         )}
       </Card>
 

@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { errorMessage } from "@/lib/format";
 import { useRequireAuth } from "@/components/auth";
 import { Alert, Button, Card, Field, Modal, PageHeader, Pagination, Spinner, EmptyState } from "@/components/ui";
+import { ResponsiveTable } from "@/components/responsive-table";
 
 export default function WaliPage() {
   const { loading: authLoading } = useRequireAuth(["SUPERADMIN"]);
@@ -75,21 +76,18 @@ export default function WaliPage() {
           <Button variant="secondary" onClick={() => void load(1, search)}>Cari</Button>
         </div>
         {loading ? <Spinner /> : rows.length === 0 ? <EmptyState /> : (
-          <div className="table-wrap">
-            <table className="tbl">
-              <thead><tr><th>Nama</th><th>Telepon</th><th>Email</th><th>Alamat</th></tr></thead>
-              <tbody>
-                {rows.map((g) => (
-                  <tr key={g.id}>
-                    <td>{g.fullName}</td>
-                    <td>{g.phone ?? "-"}</td>
-                    <td>{g.email ?? "-"}</td>
-                    <td>{g.address ?? "-"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ResponsiveTable<Guardian>
+            columns={[
+              { key: "fullName", label: "Nama", render: (g) => g.fullName },
+              { key: "phone", label: "Telepon", render: (g) => g.phone ?? "-" },
+              { key: "email", label: "Email", render: (g) => g.email ?? "-" },
+              { key: "address", label: "Alamat", render: (g) => g.address ?? "-" },
+            ]}
+            rows={rows}
+            rowKey={(g) => g.id}
+            title={(g) => g.fullName}
+            subtitle={(g) => g.phone ?? g.email ?? "-"}
+          />
         )}
         <Pagination page={page} totalPages={meta.totalPages} total={meta.total} onPage={(p) => void load(p, search)} />
       </Card>

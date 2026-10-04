@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { errorMessage } from "@/lib/format";
 import { useRequireAuth } from "@/components/auth";
 import { Alert, Button, Card, Field, Modal, PageHeader, Pagination, Spinner, EmptyState } from "@/components/ui";
+import { ResponsiveTable } from "@/components/responsive-table";
 
 export default function KelasPage() {
   const { loading: authLoading } = useRequireAuth(["SUPERADMIN"]);
@@ -82,20 +83,17 @@ export default function KelasPage() {
           </Field>
         </div>
         {loading ? <Spinner /> : rows.length === 0 ? <EmptyState /> : (
-          <div className="table-wrap">
-            <table className="tbl">
-              <thead><tr><th>Nama</th><th>Tingkat</th><th>Tahun ajaran</th></tr></thead>
-              <tbody>
-                {rows.map((c) => (
-                  <tr key={c.id}>
-                    <td>{c.name}</td>
-                    <td>{c.gradeLevel}</td>
-                    <td>{years.find((y) => y.id === c.academicYearId)?.name ?? "-"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ResponsiveTable<ClassItem>
+            columns={[
+              { key: "name", label: "Nama", render: (c) => c.name },
+              { key: "gradeLevel", label: "Tingkat", render: (c) => c.gradeLevel },
+              { key: "academicYear", label: "Tahun ajaran", render: (c) => years.find((y) => y.id === c.academicYearId)?.name ?? "-" },
+            ]}
+            rows={rows}
+            rowKey={(c) => c.id}
+            title={(c) => c.name}
+            subtitle={(c) => `Tingkat ${c.gradeLevel} · ${years.find((y) => y.id === c.academicYearId)?.name ?? "-"}`}
+          />
         )}
         <Pagination page={page} totalPages={meta.totalPages} total={meta.total} onPage={(p) => void load(p, yearFilter)} />
       </Card>

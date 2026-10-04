@@ -148,14 +148,14 @@ export default function AssessmentDetailPage({ params }: { params: Promise<{ id:
         {students.length === 0 ? <EmptyState text="Tidak ada siswa di kelas ini." /> : (
           <div className="table-wrap">
             <table className="tbl">
-              <thead><tr><th style={{ width: 40 }}>No</th><th>Nama</th><th>NIS</th><th style={{ width: 130 }}>Nilai</th><th style={{ width: 110 }}>Normalisasi</th></tr></thead>
+              <thead><tr><th className="hide-mobile" style={{ width: 40 }}>No</th><th>Nama</th><th>NIS</th><th style={{ width: 130 }}>Nilai</th><th style={{ width: 110 }}>Normalisasi</th></tr></thead>
               <tbody>
                 {students.map((s, i) => {
                   const invalid = bad.includes(s.id);
                   const existing = scores[s.id];
                   return (
                     <tr key={s.id}>
-                      <td>{i + 1}</td>
+                      <td className="hide-mobile">{i + 1}</td>
                       <td>{s.fullName}</td>
                       <td>{s.nis ?? "-"}</td>
                       <td>

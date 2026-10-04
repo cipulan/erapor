@@ -10,6 +10,7 @@ import {
   Alert, Badge, Button, Card, EmptyState, Field, Modal,
   PageHeader, Pagination, Spinner,
 } from "@/components/ui";
+import { ResponsiveTable } from "@/components/responsive-table";
 
 type Tab = ManageableRole;
 const TABS: { key: Tab; label: string }[] = [
@@ -204,33 +205,33 @@ function PenggunaInner() {
           <Button variant="secondary" onClick={() => void load(tab, q, 1)}>Cari</Button>
         </div>
         {loading ? <Spinner /> : rows.length === 0 ? <EmptyState text={`Belum ada akun ${tabLabel}.`} /> : (
-          <div className="table-wrap">
-            <table className="tbl">
-              <thead><tr><th>Nama</th><th>Email</th><th>Status</th><th>Login terakhir</th><th>Aksi</th></tr></thead>
-              <tbody>
-                {rows.map((u) => (
-                  <tr key={u.id}>
-                    <td>{u.fullName}</td>
-                    <td className="small">{u.email}</td>
-                    <td><Badge status={u.isActive ? "ACTIVE" : "INACTIVE"} /></td>
-                    <td className="small">{formatDateTime(u.lastLoginAt)}</td>
-                    <td>
-                      <div className="btn-row">
-                        <Button small variant="secondary" onClick={() => openReset(u)}>Reset password</Button>
-                        <Button
-                          small
-                          variant={u.isActive ? "warn" : "success"}
-                          onClick={() => setConfirmTarget(u)}
-                        >
-                          {u.isActive ? "Nonaktifkan" : "Aktifkan"}
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ResponsiveTable<UserItem>
+            columns={[
+              { key: "fullName", label: "Nama", render: (u) => u.fullName },
+              { key: "email", label: "Email", render: (u) => <span className="small">{u.email}</span> },
+              { key: "status", label: "Status", render: (u) => <Badge status={u.isActive ? "ACTIVE" : "INACTIVE"} /> },
+              { key: "lastLoginAt", label: "Login terakhir", render: (u) => <span className="small">{formatDateTime(u.lastLoginAt)}</span> },
+              {
+                key: "aksi", label: "Aksi",
+                render: (u) => (
+                  <div className="btn-row">
+                    <Button small variant="secondary" onClick={() => openReset(u)}>Reset password</Button>
+                    <Button
+                      small
+                      variant={u.isActive ? "warn" : "success"}
+                      onClick={() => setConfirmTarget(u)}
+                    >
+                      {u.isActive ? "Nonaktifkan" : "Aktifkan"}
+                    </Button>
+                  </div>
+                ),
+              },
+            ]}
+            rows={rows}
+            rowKey={(u) => u.id}
+            title={(u) => u.fullName}
+            subtitle={(u) => u.email}
+          />
         )}
         <Pagination page={page} totalPages={meta.totalPages} total={meta.total} onPage={(p) => void load(tab, q, p)} />
       </Card>

@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import { errorMessage } from "@/lib/format";
 import { useRequireAuth } from "@/components/auth";
 import { Alert, Badge, Button, Card, Field, Modal, PageHeader, Spinner, EmptyState } from "@/components/ui";
+import { ResponsiveTable } from "@/components/responsive-table";
 
 export default function SkemaNilaiPage() {
   const { loading: authLoading } = useRequireAuth(["SUPERADMIN"]);
@@ -87,21 +88,18 @@ export default function SkemaNilaiPage() {
           </Field>
         </div>
         {loading ? <Spinner /> : rows.length === 0 ? <EmptyState /> : (
-          <div className="table-wrap">
-            <table className="tbl">
-              <thead><tr><th>Semester</th><th>Status</th><th>Bobot</th><th>Aksi</th></tr></thead>
-              <tbody>
-                {rows.map((s) => (
-                  <tr key={s.id}>
-                    <td>{semesters.find((x) => x.id === s.semesterId)?.name ?? s.semesterId.slice(0, 8) + "…"}</td>
-                    <td><Badge status={s.status} /></td>
-                    <td className="small">{s.weights.map((w) => `${w.weight}%`).join(" + ") || "-"}</td>
-                    <td><Link href={`/skema-nilai/${s.id}`} className="btn small secondary">Kelola</Link></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ResponsiveTable<GradingScheme>
+            columns={[
+              { key: "semester", label: "Semester", render: (s) => semesters.find((x) => x.id === s.semesterId)?.name ?? s.semesterId.slice(0, 8) + "…" },
+              { key: "status", label: "Status", render: (s) => <Badge status={s.status} /> },
+              { key: "weights", label: "Bobot", render: (s) => <span className="small">{s.weights.map((w) => `${w.weight}%`).join(" + ") || "-"}</span> },
+              { key: "aksi", label: "Aksi", render: (s) => <Link href={`/skema-nilai/${s.id}`} className="btn small secondary">Kelola</Link> },
+            ]}
+            rows={rows}
+            rowKey={(s) => s.id}
+            title={(s) => semesters.find((x) => x.id === s.semesterId)?.name ?? "-"}
+            subtitle={(s) => s.weights.map((w) => `${w.weight}%`).join(" + ") || "-"}
+          />
         )}
       </Card>
 

@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { errorMessage, formatDate, formatDateTime } from "@/lib/format";
 import { useRequireAuth } from "@/components/auth";
 import { Alert, Badge, Button, Card, Field, Modal, PageHeader, Spinner, EmptyState } from "@/components/ui";
+import { ResponsiveTable } from "@/components/responsive-table";
 
 export default function SiswaDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -119,37 +120,35 @@ export default function SiswaDetailPage({ params }: { params: Promise<{ id: stri
 
       <Card title="Enrollment" actions={<Button small onClick={() => setShowEnroll(true)}>+ Enrollment</Button>}>
         {enrollments.length === 0 ? <EmptyState text="Belum ada enrollment." /> : (
-          <div className="table-wrap">
-            <table className="tbl">
-              <thead><tr><th>Tahun ajaran</th><th>Kelas</th><th>Tipe</th><th>Status</th><th>Terdaftar</th></tr></thead>
-              <tbody>
-                {enrollments.map((en) => (
-                  <tr key={en.id}>
-                    <td>{years.find((y) => y.id === en.academicYearId)?.name ?? en.academicYearId.slice(0, 8)}</td>
-                    <td>{en.classId.slice(0, 8)}…</td>
-                    <td><Badge status={en.enrollmentType} /></td>
-                    <td><Badge status={en.status} /></td>
-                    <td>{formatDateTime(en.enrolledAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ResponsiveTable<StudentEnrollment>
+            columns={[
+              { key: "year", label: "Tahun ajaran", render: (en) => years.find((y) => y.id === en.academicYearId)?.name ?? en.academicYearId.slice(0, 8) },
+              { key: "class", label: "Kelas", render: (en) => classes.find((c) => c.id === en.classId)?.name ?? en.classId.slice(0, 8) + "…" },
+              { key: "type", label: "Tipe", render: (en) => <Badge status={en.enrollmentType} /> },
+              { key: "status", label: "Status", render: (en) => <Badge status={en.status} /> },
+              { key: "enrolledAt", label: "Terdaftar", render: (en) => formatDateTime(en.enrolledAt) },
+            ]}
+            rows={enrollments}
+            rowKey={(en) => en.id}
+            title={(en) => years.find((y) => y.id === en.academicYearId)?.name ?? "-"}
+            subtitle={(en) => classes.find((c) => c.id === en.classId)?.name ?? "-"}
+          />
         )}
       </Card>
 
       <Card title="Wali" actions={<Button small onClick={() => setShowLink(true)}>+ Tautkan wali</Button>}>
         {guardians.length === 0 ? <EmptyState text="Belum ada wali tertaut." /> : (
-          <div className="table-wrap">
-            <table className="tbl">
-              <thead><tr><th>Nama</th><th>Telepon</th><th>Email</th></tr></thead>
-              <tbody>
-                {guardians.map((g) => (
-                  <tr key={g.id}><td>{g.fullName}</td><td>{g.phone ?? "-"}</td><td>{g.email ?? "-"}</td></tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ResponsiveTable<Guardian>
+            columns={[
+              { key: "fullName", label: "Nama", render: (g) => g.fullName },
+              { key: "phone", label: "Telepon", render: (g) => g.phone ?? "-" },
+              { key: "email", label: "Email", render: (g) => g.email ?? "-" },
+            ]}
+            rows={guardians}
+            rowKey={(g) => g.id}
+            title={(g) => g.fullName}
+            subtitle={(g) => g.phone ?? g.email ?? "-"}
+          />
         )}
       </Card>
 

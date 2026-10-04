@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { errorMessage } from "@/lib/format";
 import { useRequireAuth } from "@/components/auth";
 import { Alert, Badge, Button, Card, Field, Modal, PageHeader, Spinner, EmptyState } from "@/components/ui";
+import { ResponsiveTable } from "@/components/responsive-table";
 
 export default function PenugasanPage() {
   const { loading: authLoading } = useRequireAuth(["SUPERADMIN"]);
@@ -120,22 +121,19 @@ export default function PenugasanPage() {
           </Field>
         </div>
         {loading ? <Spinner /> : rows.length === 0 ? <EmptyState /> : (
-          <div className="table-wrap">
-            <table className="tbl">
-              <thead><tr><th>Guru</th><th>Kelas</th><th>Mapel</th><th>Semester</th><th>Status</th></tr></thead>
-              <tbody>
-                {rows.map((a) => (
-                  <tr key={a.id}>
-                    <td>{teachers.find((t) => t.id === a.teacherId)?.fullName ?? a.teacherId.slice(0, 8) + "…"}</td>
-                    <td>{nameOf(classes, a.classId)}</td>
-                    <td>{nameOf(subjects, a.subjectId)}</td>
-                    <td>{semesters.find((s) => s.id === a.semesterId)?.name ?? a.semesterId.slice(0, 8) + "…"}</td>
-                    <td><Badge status={a.status} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ResponsiveTable<TeacherAssignment>
+            columns={[
+              { key: "teacher", label: "Guru", render: (a) => teachers.find((t) => t.id === a.teacherId)?.fullName ?? a.teacherId.slice(0, 8) + "…" },
+              { key: "class", label: "Kelas", render: (a) => nameOf(classes, a.classId) },
+              { key: "subject", label: "Mapel", render: (a) => nameOf(subjects, a.subjectId) },
+              { key: "semester", label: "Semester", render: (a) => semesters.find((s) => s.id === a.semesterId)?.name ?? a.semesterId.slice(0, 8) + "…" },
+              { key: "status", label: "Status", render: (a) => <Badge status={a.status} /> },
+            ]}
+            rows={rows}
+            rowKey={(a) => a.id}
+            title={(a) => teachers.find((t) => t.id === a.teacherId)?.fullName ?? "-"}
+            subtitle={(a) => `${nameOf(classes, a.classId)} · ${nameOf(subjects, a.subjectId)}`}
+          />
         )}
       </Card>
 

@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 import { errorMessage } from "@/lib/format";
 import { useAuth, useRequireAuth } from "@/components/auth";
 import { Alert, Badge, Button, Card, Field, Modal, PageHeader, Pagination, Spinner, EmptyState } from "@/components/ui";
+import { ResponsiveTable } from "@/components/responsive-table";
 
 function RaporList() {
   const { user } = useAuth();
@@ -138,21 +139,18 @@ function RaporList() {
           </Field>
         </div>
         {loading ? <Spinner /> : rows.length === 0 ? <EmptyState /> : (
-          <div className="table-wrap">
-            <table className="tbl">
-              <thead><tr><th>Siswa</th><th>Versi</th><th>Status</th><th>Aksi</th></tr></thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.id}>
-                    <td><Link href={`/rapor/${r.id}`}>{studentName(r.studentId)}</Link></td>
-                    <td>v{r.version}</td>
-                    <td><Badge status={r.status} /></td>
-                    <td><Link href={`/rapor/${r.id}`} className="btn small secondary">Buka</Link></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ResponsiveTable<ReportCard>
+            columns={[
+              { key: "student", label: "Siswa", render: (r) => <Link href={`/rapor/${r.id}`}>{studentName(r.studentId)}</Link> },
+              { key: "version", label: "Versi", render: (r) => `v${r.version}` },
+              { key: "status", label: "Status", render: (r) => <Badge status={r.status} /> },
+              { key: "aksi", label: "Aksi", render: (r) => <Link href={`/rapor/${r.id}`} className="btn small secondary">Buka</Link> },
+            ]}
+            rows={rows}
+            rowKey={(r) => r.id}
+            title={(r) => <Link href={`/rapor/${r.id}`}>{studentName(r.studentId)}</Link>}
+            subtitle={(r) => `Versi ${r.version}`}
+          />
         )}
         <Pagination page={page} totalPages={meta.totalPages} total={meta.total} onPage={(p) => void load(filters, p)} />
       </Card>

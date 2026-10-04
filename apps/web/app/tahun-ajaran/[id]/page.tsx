@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { errorMessage, formatDate } from "@/lib/format";
 import { useRequireAuth } from "@/components/auth";
 import { Alert, Badge, Button, Card, Field, Modal, PageHeader, Spinner, EmptyState } from "@/components/ui";
+import { ResponsiveTable } from "@/components/responsive-table";
 
 export default function TahunAjaranDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -71,21 +72,18 @@ export default function TahunAjaranDetailPage({ params }: { params: Promise<{ id
       {year && <Card><Badge status={year.status} /></Card>}
       <Card title="Semester">
         {semesters.length === 0 ? <EmptyState text="Belum ada semester." /> : (
-          <div className="table-wrap">
-            <table className="tbl">
-              <thead><tr><th>Nama</th><th>Kode</th><th>Periode</th><th>Status</th></tr></thead>
-              <tbody>
-                {semesters.map((s) => (
-                  <tr key={s.id}>
-                    <td>{s.name}</td>
-                    <td><Badge status={s.code} /></td>
-                    <td>{formatDate(s.startDate)} – {formatDate(s.endDate)}</td>
-                    <td><Badge status={s.status} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ResponsiveTable<Semester>
+            columns={[
+              { key: "name", label: "Nama", render: (s) => s.name },
+              { key: "code", label: "Kode", render: (s) => <Badge status={s.code} /> },
+              { key: "period", label: "Periode", render: (s) => `${formatDate(s.startDate)} – ${formatDate(s.endDate)}` },
+              { key: "status", label: "Status", render: (s) => <Badge status={s.status} /> },
+            ]}
+            rows={semesters}
+            rowKey={(s) => s.id}
+            title={(s) => s.name}
+            subtitle={(s) => `${formatDate(s.startDate)} – ${formatDate(s.endDate)}`}
+          />
         )}
       </Card>
 

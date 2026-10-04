@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { AcademicYear, AssessmentCategory, GradePreview, Semester, Student, Subject } from "@erapor/api-client";
+import type { AcademicYear, AssessmentCategory, GradePreview, GradePreviewCategory, Semester, Student, Subject } from "@erapor/api-client";
 import { api } from "@/lib/api";
 import { errorMessage, formatNumber } from "@/lib/format";
 import { useRequireAuth } from "@/components/auth";
 import { Alert, Badge, Card, Field, PageHeader, Spinner, EmptyState } from "@/components/ui";
+import { ResponsiveTable } from "@/components/responsive-table";
 import { Button } from "@/components/ui";
 
 export default function PreviewNilaiPage() {
@@ -131,21 +132,18 @@ export default function PreviewNilaiPage() {
             </Alert>
           )}
           {result.categoryAverages && result.categoryAverages.length > 0 ? (
-            <div className="table-wrap">
-              <table className="tbl">
-                <thead><tr><th>Kategori</th><th>Rata-rata</th><th>Bobot</th><th>Kontribusi</th></tr></thead>
-                <tbody>
-                  {result.categoryAverages.map((c) => (
-                    <tr key={c.categoryId}>
-                      <td>{catName(c.categoryId)}</td>
-                      <td>{formatNumber(c.average)}</td>
-                      <td>{formatNumber(c.weight)}%</td>
-                      <td>{formatNumber(c.weightedValue)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <ResponsiveTable<GradePreviewCategory>
+              columns={[
+                { key: "category", label: "Kategori", render: (c) => catName(c.categoryId) },
+                { key: "average", label: "Rata-rata", render: (c) => formatNumber(c.average) },
+                { key: "weight", label: "Bobot", render: (c) => `${formatNumber(c.weight)}%` },
+                { key: "weightedValue", label: "Kontribusi", render: (c) => formatNumber(c.weightedValue) },
+              ]}
+              rows={result.categoryAverages}
+              rowKey={(c) => c.categoryId}
+              title={(c) => catName(c.categoryId)}
+              subtitle={(c) => `Rata-rata ${formatNumber(c.average)} · kontribusi ${formatNumber(c.weightedValue)}`}
+            />
           ) : <EmptyState text="Belum ada nilai pada kategori manapun." />}
           <dl className="kv mt">
             <dt>Nilai akhir</dt><dd><strong>{result.finalScore !== null ? formatNumber(result.finalScore) : "—"}</strong></dd>

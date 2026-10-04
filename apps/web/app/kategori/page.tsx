@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { errorMessage } from "@/lib/format";
 import { useRequireAuth } from "@/components/auth";
 import { Alert, Badge, Button, Card, Field, Modal, PageHeader, Spinner, EmptyState } from "@/components/ui";
+import { ResponsiveTable } from "@/components/responsive-table";
 
 export default function KategoriPage() {
   const { loading: authLoading } = useRequireAuth(["SUPERADMIN"]);
@@ -54,20 +55,17 @@ export default function KategoriPage() {
       <Alert kind="error">{error}</Alert>
       <Card>
         {loading ? <Spinner /> : rows.length === 0 ? <EmptyState /> : (
-          <div className="table-wrap">
-            <table className="tbl">
-              <thead><tr><th>Nama</th><th>Deskripsi</th><th>Status</th></tr></thead>
-              <tbody>
-                {rows.map((c) => (
-                  <tr key={c.id}>
-                    <td>{c.name}</td>
-                    <td>{c.description ?? "-"}</td>
-                    <td><Badge status={c.isActive ? "ACTIVE" : "INACTIVE"} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ResponsiveTable<AssessmentCategory>
+            columns={[
+              { key: "name", label: "Nama", render: (c) => c.name },
+              { key: "description", label: "Deskripsi", render: (c) => c.description ?? "-" },
+              { key: "status", label: "Status", render: (c) => <Badge status={c.isActive ? "ACTIVE" : "INACTIVE"} /> },
+            ]}
+            rows={rows}
+            rowKey={(c) => c.id}
+            title={(c) => c.name}
+            subtitle={(c) => c.description ?? "-"}
+          />
         )}
       </Card>
 

@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import { errorMessage } from "@/lib/format";
 import { useRequireAuth } from "@/components/auth";
 import { Alert, Badge, Button, Card, Field, Modal, PageHeader, Pagination, Spinner, EmptyState } from "@/components/ui";
+import { ResponsiveTable } from "@/components/responsive-table";
 
 export default function SiswaPage() {
   const { loading: authLoading } = useRequireAuth(["SUPERADMIN"]);
@@ -78,22 +79,19 @@ export default function SiswaPage() {
           <Button variant="secondary" onClick={() => void load(1, search)}>Cari</Button>
         </div>
         {loading ? <Spinner /> : rows.length === 0 ? <EmptyState /> : (
-          <div className="table-wrap">
-            <table className="tbl">
-              <thead><tr><th>Nama</th><th>NIS</th><th>NISN</th><th>JK</th><th>Status</th></tr></thead>
-              <tbody>
-                {rows.map((s) => (
-                  <tr key={s.id}>
-                    <td><Link href={`/siswa/${s.id}`}>{s.fullName}</Link></td>
-                    <td>{s.nis ?? "-"}</td>
-                    <td>{s.nisn ?? "-"}</td>
-                    <td>{s.gender === "MALE" ? "L" : s.gender === "FEMALE" ? "P" : "-"}</td>
-                    <td><Badge status={s.status} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ResponsiveTable<Student>
+            columns={[
+              { key: "fullName", label: "Nama", render: (s) => <Link href={`/siswa/${s.id}`}>{s.fullName}</Link> },
+              { key: "nis", label: "NIS", render: (s) => s.nis ?? "-" },
+              { key: "nisn", label: "NISN", render: (s) => s.nisn ?? "-" },
+              { key: "gender", label: "JK", render: (s) => (s.gender === "MALE" ? "L" : s.gender === "FEMALE" ? "P" : "-") },
+              { key: "status", label: "Status", render: (s) => <Badge status={s.status} /> },
+            ]}
+            rows={rows}
+            rowKey={(s) => s.id}
+            title={(s) => <Link href={`/siswa/${s.id}`}>{s.fullName}</Link>}
+            subtitle={(s) => `NIS ${s.nis ?? "-"} · ${s.gender === "MALE" ? "Laki-laki" : s.gender === "FEMALE" ? "Perempuan" : "-"}`}
+          />
         )}
         <Pagination page={page} totalPages={meta.totalPages} total={meta.total} onPage={(p) => void load(p, search)} />
       </Card>

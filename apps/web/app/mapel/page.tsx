@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import { errorMessage } from "@/lib/format";
 import { useRequireAuth } from "@/components/auth";
 import { Alert, Badge, Button, Card, Field, Modal, PageHeader, Pagination, Spinner, EmptyState } from "@/components/ui";
+import { ResponsiveTable } from "@/components/responsive-table";
 
 export default function MapelPage() {
   const { loading: authLoading } = useRequireAuth(["SUPERADMIN"]);
@@ -60,21 +61,18 @@ export default function MapelPage() {
       <Alert kind="error">{error}</Alert>
       <Card>
         {loading ? <Spinner /> : rows.length === 0 ? <EmptyState /> : (
-          <div className="table-wrap">
-            <table className="tbl">
-              <thead><tr><th>Kode</th><th>Nama</th><th>Tipe</th><th>Status</th></tr></thead>
-              <tbody>
-                {rows.map((s) => (
-                  <tr key={s.id}>
-                    <td><Link href={`/mapel/${s.id}`}>{s.code}</Link></td>
-                    <td>{s.name}</td>
-                    <td><Badge status={s.subjectType} /></td>
-                    <td><Badge status={s.isActive ? "ACTIVE" : "INACTIVE"} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ResponsiveTable<Subject>
+            columns={[
+              { key: "code", label: "Kode", render: (s) => <Link href={`/mapel/${s.id}`}>{s.code}</Link> },
+              { key: "name", label: "Nama", render: (s) => s.name },
+              { key: "subjectType", label: "Tipe", render: (s) => <Badge status={s.subjectType} /> },
+              { key: "status", label: "Status", render: (s) => <Badge status={s.isActive ? "ACTIVE" : "INACTIVE"} /> },
+            ]}
+            rows={rows}
+            rowKey={(s) => s.id}
+            title={(s) => <Link href={`/mapel/${s.id}`}>{s.name}</Link>}
+            subtitle={(s) => s.code}
+          />
         )}
         <Pagination page={page} totalPages={meta.totalPages} total={meta.total} onPage={(p) => void load(p)} />
       </Card>

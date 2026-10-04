@@ -1,11 +1,12 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
-import type { ReportCardDetail, Student } from "@erapor/api-client";
+import type { ReportCardDetail, ReportCardSubject, Student } from "@erapor/api-client";
 import { api } from "@/lib/api";
 import { errorMessage, formatDateTime, formatNumber } from "@/lib/format";
 import { useAuth, useRequireAuth } from "@/components/auth";
 import { Alert, Badge, Button, Card, Field, Modal, PageHeader, Spinner } from "@/components/ui";
+import { ResponsiveTable } from "@/components/responsive-table";
 
 export default function RaporDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -93,22 +94,19 @@ export default function RaporDetailPage({ params }: { params: Promise<{ id: stri
       ) : (
         <>
           <Card title="Nilai per mata pelajaran">
-            <div className="table-wrap">
-              <table className="tbl">
-                <thead><tr><th>Mapel</th><th>Nilai akhir</th><th>KKTP</th><th>Status</th><th>Deskripsi</th></tr></thead>
-                <tbody>
-                  {report.subjects.map((s) => (
-                    <tr key={s.id}>
-                      <td>{s.subjectName}</td>
-                      <td><strong>{formatNumber(s.finalScore, 0)}</strong></td>
-                      <td>{s.kktpThreshold ?? "—"}</td>
-                      <td><Badge status={s.achievement} /></td>
-                      <td className="small">{s.description ?? "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <ResponsiveTable<ReportCardSubject>
+            columns={[
+              { key: "subjectName", label: "Mapel", render: (s) => s.subjectName },
+              { key: "finalScore", label: "Nilai akhir", render: (s) => <strong>{formatNumber(s.finalScore, 0)}</strong> },
+              { key: "kktpThreshold", label: "KKTP", render: (s) => s.kktpThreshold ?? "—" },
+              { key: "achievement", label: "Status", render: (s) => <Badge status={s.achievement} /> },
+              { key: "description", label: "Deskripsi", render: (s) => <span className="small">{s.description ?? "—"}</span> },
+            ]}
+            rows={report.subjects}
+            rowKey={(s) => s.id}
+            title={(s) => s.subjectName}
+            subtitle={(s) => `Nilai akhir ${formatNumber(s.finalScore, 0)}`}
+          />
             <dl className="kv mt">
               <dt>Dibuat</dt><dd>{formatDateTime(report.generatedAt)}</dd>
               <dt>Direview</dt><dd>{formatDateTime(report.reviewedAt)}</dd>

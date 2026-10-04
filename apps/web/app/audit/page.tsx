@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { errorMessage, formatDateTime } from "@/lib/format";
 import { useRequireAuth } from "@/components/auth";
 import { Alert, Card, Field, PageHeader, Pagination, Spinner, EmptyState, Button } from "@/components/ui";
+import { ResponsiveTable } from "@/components/responsive-table";
 
 export default function AuditPage() {
   const { loading: authLoading } = useRequireAuth(["SUPERADMIN"]);
@@ -59,22 +60,19 @@ export default function AuditPage() {
           <Button variant="secondary" onClick={() => void load(filters, 1)}>Filter</Button>
         </div>
         {loading ? <Spinner /> : rows.length === 0 ? <EmptyState /> : (
-          <div className="table-wrap">
-            <table className="tbl">
-              <thead><tr><th>Waktu</th><th>Aksi</th><th>Entitas</th><th>ID entitas</th><th>Pelaku</th></tr></thead>
-              <tbody>
-                {rows.map((a) => (
-                  <tr key={a.id}>
-                    <td className="small">{formatDateTime(a.createdAt)}</td>
-                    <td><span className="badge blue">{a.action}</span></td>
-                    <td>{a.entityType}</td>
-                    <td className="small">{a.entityId ? a.entityId.slice(0, 8) + "…" : "-"}</td>
-                    <td className="small">{a.actorUserId ? a.actorUserId.slice(0, 8) + "…" : "sistem"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ResponsiveTable<AuditLog>
+            columns={[
+              { key: "createdAt", label: "Waktu", render: (a) => <span className="small">{formatDateTime(a.createdAt)}</span> },
+              { key: "action", label: "Aksi", render: (a) => <span className="badge blue">{a.action}</span> },
+              { key: "entityType", label: "Entitas", render: (a) => a.entityType },
+              { key: "entityId", label: "ID entitas", render: (a) => <span className="small">{a.entityId ? a.entityId.slice(0, 8) + "…" : "-"}</span> },
+              { key: "actor", label: "Pelaku", render: (a) => <span className="small">{a.actorUserId ? a.actorUserId.slice(0, 8) + "…" : "sistem"}</span> },
+            ]}
+            rows={rows}
+            rowKey={(a) => a.id}
+            title={(a) => <span className="badge blue">{a.action}</span>}
+            subtitle={(a) => `${a.entityType} · ${formatDateTime(a.createdAt)}`}
+          />
         )}
         <Pagination page={page} totalPages={meta.totalPages} total={meta.total} onPage={(p) => void load(filters, p)} />
       </Card>

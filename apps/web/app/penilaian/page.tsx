@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import { errorMessage, formatDate } from "@/lib/format";
 import { useAuth, useRequireAuth } from "@/components/auth";
 import { Alert, Badge, Button, Card, Field, Modal, PageHeader, Spinner, EmptyState } from "@/components/ui";
+import { ResponsiveTable } from "@/components/responsive-table";
 
 export default function PenilaianPage() {
   const { loading: authLoading } = useRequireAuth(["SUPERADMIN", "TEACHER"]);
@@ -168,24 +169,21 @@ export default function PenilaianPage() {
           </Field>
         </div>
         {loading ? <Spinner /> : rows.length === 0 ? <EmptyState /> : (
-          <div className="table-wrap">
-            <table className="tbl">
-              <thead><tr><th>Judul</th><th>Kelas</th><th>Mapel</th><th>Kategori</th><th>Maks</th><th>Tanggal</th><th>Status</th></tr></thead>
-              <tbody>
-                {rows.map((a) => (
-                  <tr key={a.id}>
-                    <td><Link href={`/penilaian/${a.id}`}>{a.title}</Link></td>
-                    <td>{nameOf(classes, a.classId)}</td>
-                    <td>{nameOf(subjects, a.subjectId)}</td>
-                    <td>{categories.find((c) => c.id === a.categoryId)?.name ?? "—"}</td>
-                    <td>{a.maxScore}</td>
-                    <td>{formatDate(a.assessmentDate)}</td>
-                    <td><Badge status={a.status} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ResponsiveTable<Assessment>
+            columns={[
+              { key: "title", label: "Judul", render: (a) => <Link href={`/penilaian/${a.id}`}>{a.title}</Link> },
+              { key: "class", label: "Kelas", render: (a) => nameOf(classes, a.classId) },
+              { key: "subject", label: "Mapel", render: (a) => nameOf(subjects, a.subjectId) },
+              { key: "category", label: "Kategori", render: (a) => categories.find((c) => c.id === a.categoryId)?.name ?? "—" },
+              { key: "maxScore", label: "Maks", render: (a) => a.maxScore },
+              { key: "date", label: "Tanggal", render: (a) => formatDate(a.assessmentDate) },
+              { key: "status", label: "Status", render: (a) => <Badge status={a.status} /> },
+            ]}
+            rows={rows}
+            rowKey={(a) => a.id}
+            title={(a) => <Link href={`/penilaian/${a.id}`}>{a.title}</Link>}
+            subtitle={(a) => `${nameOf(classes, a.classId)} · ${nameOf(subjects, a.subjectId)}`}
+          />
         )}
       </Card>
 

@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import { errorMessage, formatDate } from "@/lib/format";
 import { useRequireAuth } from "@/components/auth";
 import { Alert, Badge, Button, Card, Field, Modal, PageHeader, Pagination, Spinner, EmptyState } from "@/components/ui";
+import { ResponsiveTable } from "@/components/responsive-table";
 
 export default function TahunAjaranPage() {
   const { loading: authLoading } = useRequireAuth(["SUPERADMIN"]);
@@ -79,29 +80,29 @@ export default function TahunAjaranPage() {
       <Alert kind="error">{error}</Alert>
       <Card>
         {loading ? <Spinner /> : rows.length === 0 ? <EmptyState /> : (
-          <div className="table-wrap">
-            <table className="tbl">
-              <thead><tr><th>Nama</th><th>Mulai</th><th>Selesai</th><th>Status</th><th>Aksi</th></tr></thead>
-              <tbody>
-                {rows.map((y) => (
-                  <tr key={y.id}>
-                    <td><Link href={`/tahun-ajaran/${y.id}`}>{y.name}</Link></td>
-                    <td>{formatDate(y.startDate)}</td>
-                    <td>{formatDate(y.endDate)}</td>
-                    <td><Badge status={y.status} /></td>
-                    <td>
-                      <div className="btn-row" style={{ marginTop: 0 }}>
-                        <Link href={`/tahun-ajaran/${y.id}`} className="btn small secondary">Semester</Link>
-                        {y.status !== "ACTIVE" && (
-                          <Button small variant="success" onClick={() => void onActivate(y.id)}>Aktifkan</Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ResponsiveTable<AcademicYear>
+            columns={[
+              { key: "name", label: "Nama", render: (y) => <Link href={`/tahun-ajaran/${y.id}`}>{y.name}</Link> },
+              { key: "startDate", label: "Mulai", render: (y) => formatDate(y.startDate) },
+              { key: "endDate", label: "Selesai", render: (y) => formatDate(y.endDate) },
+              { key: "status", label: "Status", render: (y) => <Badge status={y.status} /> },
+              {
+                key: "aksi", label: "Aksi",
+                render: (y) => (
+                  <div className="btn-row" style={{ marginTop: 0 }}>
+                    <Link href={`/tahun-ajaran/${y.id}`} className="btn small secondary">Semester</Link>
+                    {y.status !== "ACTIVE" && (
+                      <Button small variant="success" onClick={() => void onActivate(y.id)}>Aktifkan</Button>
+                    )}
+                  </div>
+                ),
+              },
+            ]}
+            rows={rows}
+            rowKey={(y) => y.id}
+            title={(y) => <Link href={`/tahun-ajaran/${y.id}`}>{y.name}</Link>}
+            subtitle={(y) => `${formatDate(y.startDate)} – ${formatDate(y.endDate)}`}
+          />
         )}
         <Pagination page={page} totalPages={meta.totalPages} total={meta.total} onPage={(p) => void load(p)} />
       </Card>
