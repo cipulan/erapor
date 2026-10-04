@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Inject,
@@ -66,6 +67,18 @@ export class AssessmentsController {
     @Req() req: Request,
   ) {
     return this.service.replaceScores(user, id, dto, req);
+  }
+
+  @Delete(":id/scores/:studentId")
+  @HttpCode(204)
+  @Roles("SUPERADMIN", "TEACHER")
+  async deleteScore(
+    @CurrentUser() user: SessionUser,
+    @Param("id") id: string,
+    @Param("studentId") studentId: string,
+    @Req() req: Request,
+  ) {
+    await this.service.deleteScore(user, id, studentId, req);
   }
 
   @Post(":id/scores/import")

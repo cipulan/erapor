@@ -167,6 +167,7 @@ export function createApiClient(options: ClientOptions) {
     request<T>(path, { method: "PUT", body: data === undefined ? undefined : JSON.stringify(data) });
   const patch = <T>(path: string, data?: unknown) =>
     request<T>(path, { method: "PATCH", body: data === undefined ? undefined : JSON.stringify(data) });
+  const del = <T>(path: string) => request<T>(path, { method: "DELETE" });
 
   return {
     // ---- Auth ----
@@ -305,6 +306,8 @@ export function createApiClient(options: ClientOptions) {
       list: (assessmentId: string) => get<AssessmentScore[]>(`/assessments/${assessmentId}/scores`),
       replace: (assessmentId: string, data: BulkScoresInput) =>
         put<AssessmentScore[]>(`/assessments/${assessmentId}/scores`, data),
+      remove: (assessmentId: string, studentId: string) =>
+        del<void>(`/assessments/${assessmentId}/scores/${studentId}`),
     },
     scoreImport: {
       preview: (assessmentId: string, file: File) => {

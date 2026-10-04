@@ -205,6 +205,31 @@ export class AssessmentsService {
     return saved.map(toScoreJson);
   }
 
+  /** Hapus satu nilai siswa. Asesmen CLOSED tidak bisa diubah. */
+  async deleteScore(user: SessionUser, id: string, studentId: string, req: Request) {
+    const assessment = await this.scopedAssessment(user, id);
+    if (assessment.status === "CLOSED") {
+      throw Errors.conflict(ApiErrorCode.RESOURCE_CONFLICT, "Asesmen sudah ditutup; nilai tidak dapat dihapus.");
+    }
+    const existing = await this.prisma.assessmentScore.findUnique({
+      where: { assessmentId_studentId: { assessmentId: assessment.id, studentId } },
+      select: { id: true, score: true },
+    });
+    if (!existing) {
+      throw Errors.notFound("Nilai");
+    }
+    await this.prisma.assessmentScore.delete({ where: { id: existing.id } });
+    await this.audit.log({
+      req,
+      schoolId: user.schoolId,
+      actorUserId: user.id,
+      action: AuditAction.SCORE_DELETE,
+      entityType: "AssessmentScore",
+      entityId: existing.id,
+      beforeJson: { assessmentId: assessment.id, studentId, score: existing.score.toString() },
+    });
+  }
+
   /** Applies pre-validated import rows (from the import preview token). */
   async applyImportRows(
     user: SessionUser,

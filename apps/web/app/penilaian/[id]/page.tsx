@@ -100,6 +100,21 @@ export default function AssessmentDetailPage({ params }: { params: Promise<{ id:
     }
   }
 
+  async function onDeleteScore(s: Student) {
+    if (!confirm(`Hapus nilai ${s.fullName}?`)) return;
+    setError(""); setSuccess("");
+    setSaving(true);
+    try {
+      await api().scores.remove(id, s.id);
+      setSuccess(`Nilai ${s.fullName} dihapus.`);
+      await load();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function onPreviewImport() {
     if (!file) { setError("Pilih file CSV/XLSX dulu."); return; }
     setImportBusy(true);
@@ -156,7 +171,7 @@ export default function AssessmentDetailPage({ params }: { params: Promise<{ id:
         {students.length === 0 ? <EmptyState text="Tidak ada siswa di kelas ini." /> : (
           <div className="table-wrap">
             <table className="tbl">
-              <thead><tr><th className="hide-mobile" style={{ width: 40 }}>No</th><th>Nama</th><th style={{ width: 130 }}>Nilai</th><th style={{ width: 110 }}>Normalisasi</th></tr></thead>
+              <thead><tr><th className="hide-mobile" style={{ width: 40 }}>No</th><th>Nama</th><th style={{ width: 130 }}>Nilai</th><th style={{ width: 110 }}>Normalisasi</th><th style={{ width: 70 }}></th></tr></thead>
               <tbody>
                 {students.map((s, i) => {
                   const invalid = bad.includes(s.id);
@@ -177,6 +192,11 @@ export default function AssessmentDetailPage({ params }: { params: Promise<{ id:
                       </td>
                       <td className="muted small">
                         {existing ? `${existing.normalizedScore}` : "—"}
+                      </td>
+                      <td>
+                        {existing && (
+                          <Button small variant="danger" onClick={() => void onDeleteScore(s)} disabled={saving}>Hapus</Button>
+                        )}
                       </td>
                     </tr>
                   );
