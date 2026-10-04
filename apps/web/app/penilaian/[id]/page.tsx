@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
-import type { Assessment, AssessmentScore, ImportPreview, Student } from "@erapor/api-client";
+import type { Assessment, AssessmentScore, ClassItem, ImportPreview, Student, Subject } from "@erapor/api-client";
 import { api } from "@/lib/api";
 import { errorMessage, formatDate } from "@/lib/format";
 import { useRequireAuth } from "@/components/auth";
@@ -12,6 +12,8 @@ export default function AssessmentDetailPage({ params }: { params: Promise<{ id:
   const { loading: authLoading } = useRequireAuth(["SUPERADMIN", "TEACHER"]);
   const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
+  const [classes, setClasses] = useState<ClassItem[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [scores, setScores] = useState<Record<string, AssessmentScore>>({});
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -30,11 +32,15 @@ export default function AssessmentDetailPage({ params }: { params: Promise<{ id:
     try {
       const a = await api().assessments.get(id);
       setAssessment(a);
-      const [st, sc] = await Promise.all([
+      const [st, sc, cl, sb] = await Promise.all([
         api().students.list({ classId: a.classId, limit: 100 }),
         api().scores.list(id),
+        api().classes.list({ limit: 100 }),
+        api().subjects.list({ limit: 100 }),
       ]);
       setStudents(st.data);
+      setClasses(cl.data);
+      setSubjects(sb.data);
       const map: Record<string, AssessmentScore> = {};
       const e: Record<string, string> = {};
       for (const s of sc) {
@@ -130,12 +136,14 @@ export default function AssessmentDetailPage({ params }: { params: Promise<{ id:
   if (authLoading || loading) return <Spinner />;
 
   const { bad } = validateAll();
+  const className = classes.find((c) => c.id === assessment?.classId)?.name ?? "—";
+  const subjectName = subjects.find((s) => s.id === assessment?.subjectId)?.name ?? "—";
 
   return (
     <>
       <PageHeader
         title={assessment?.title ?? "Assessment"}
-        subtitle={assessment ? `Skor maks ${assessment.maxScore} · ${formatDate(assessment.assessmentDate)}` : undefined}
+        subtitle={assessment ? `Kelas ${className} · ${subjectName} · Skor maks ${assessment.maxScore} · ${formatDate(assessment.assessmentDate)}` : undefined}
         actions={assessment ? <Badge status={assessment.status} /> : undefined}
       />
       <Alert kind="error">{error}</Alert>
@@ -148,7 +156,7 @@ export default function AssessmentDetailPage({ params }: { params: Promise<{ id:
         {students.length === 0 ? <EmptyState text="Tidak ada siswa di kelas ini." /> : (
           <div className="table-wrap">
             <table className="tbl">
-              <thead><tr><th className="hide-mobile" style={{ width: 40 }}>No</th><th>Nama</th><th>NIS</th><th style={{ width: 130 }}>Nilai</th><th style={{ width: 110 }}>Normalisasi</th></tr></thead>
+              <thead><tr><th className="hide-mobile" style={{ width: 40 }}>No</th><th>Nama</th><th style={{ width: 130 }}>Nilai</th><th style={{ width: 110 }}>Normalisasi</th></tr></thead>
               <tbody>
                 {students.map((s, i) => {
                   const invalid = bad.includes(s.id);
@@ -157,7 +165,6 @@ export default function AssessmentDetailPage({ params }: { params: Promise<{ id:
                     <tr key={s.id}>
                       <td className="hide-mobile">{i + 1}</td>
                       <td>{s.fullName}</td>
-                      <td>{s.nis ?? "-"}</td>
                       <td>
                         <input
                           type="text"
