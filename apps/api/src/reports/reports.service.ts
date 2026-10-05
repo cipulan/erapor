@@ -9,8 +9,8 @@ import { ApiErrorCode } from "../common/errors/error-codes";
 import { Paginated, PaginationParams, buildPaginated } from "../common/http/pagination";
 import type { SessionUser } from "../auth/types/session-user";
 import { calculateGrade } from "../grading/grading-engine";
-import { generateSubjectDescription } from "../grading/description-generator";
-import { CreateRevisionDto, GenerateReportCardDto } from "./dto/report.dto";
+import { generateSubjectDescription, generateTpDescription } from "../grading/description-generator";
+import { CreateRevisionDto, GenerateReportCardDto, UpdateSubjectDescriptionDto } from "./dto/report.dto";
 
 const MUTABLE_STATUSES = ["DRAFT", "REVIEW", "LOCKED", "REVISION"];
 
@@ -118,6 +118,16 @@ export class ReportsService {
       publishedAt: report.publishedAt ? report.publishedAt.toISOString() : null,
       homeroomTeacherName: klass.homeroomTeacher?.fullName ?? null,
       headmasterName: school.headmasterName ?? null,
+      cocurricularDescription: report.cocurricularDescription,
+      homeroomNotes: report.homeroomNotes,
+      sickDays: report.sickDays,
+      permissionDays: report.permissionDays,
+      unexcusedDays: report.unexcusedDays,
+      extracurriculars: report.extracurriculars.map((e) => ({
+        name: e.name,
+        predicate: e.predicate,
+        description: e.description,
+      })),
       subjects: report.subjects.map((s) => ({
         subjectName: s.subjectName,
         finalScore: Math.round(Number(new Decimal(s.finalScore.toString()).toString())),
@@ -187,7 +197,7 @@ export class ReportsService {
       }
       return tx.reportCard.findUniqueOrThrow({
         where: { id: created.id },
-        include: { subjects: true },
+        include: { subjects: true, extracurriculars: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] } },
       });
     });
 
@@ -211,7 +221,7 @@ export class ReportsService {
     const updated = await this.prisma.reportCard.update({
       where: { id: report.id },
       data: { status: "REVIEW", reviewedAt: new Date(), reviewedById: user.id },
-      include: { subjects: true },
+      include: { subjects: true, extracurriculars: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] } },
     });
     await this.audit.log({
       req, schoolId: user.schoolId, actorUserId: user.id,
@@ -229,7 +239,7 @@ export class ReportsService {
     const updated = await this.prisma.reportCard.update({
       where: { id: report.id },
       data: { status: "LOCKED", lockedAt: new Date(), lockedById: user.id },
-      include: { subjects: true },
+      include: { subjects: true, extracurriculars: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] } },
     });
     await this.audit.log({
       req, schoolId: user.schoolId, actorUserId: user.id,
@@ -251,7 +261,7 @@ export class ReportsService {
     const updated = await this.prisma.reportCard.update({
       where: { id: report.id },
       data: { status: "PUBLISHED", publishedAt: new Date(), publishedById: user.id },
-      include: { subjects: true },
+      include: { subjects: true, extracurriculars: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] } },
     });
     await this.audit.log({
       req, schoolId: user.schoolId, actorUserId: user.id,
@@ -321,7 +331,7 @@ export class ReportsService {
       }
       return tx.reportCard.findUniqueOrThrow({
         where: { id: created.id },
-        include: { subjects: true },
+        include: { subjects: true, extracurriculars: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] } },
       });
     });
 
@@ -334,9 +344,155 @@ export class ReportsService {
     return toReportDetailJson(report);
   }
 
+  /**
+   * Ubah manual deskripsi satu mapel pada rapor. Hanya untuk rapor yang
+   * masih bisa diubah (DRAFT/REVIEW/REVISION); rapor PUBLISHED/LOCKED
+   * dilindungi trigger immutability di database. Penanda sumber menjadi
+   * MANUAL sehingga regenerate versi baru tidak relevan (tiap generate
+   * membuat versi baru) dan UI bisa menampilkan badge.
+   */
+  async updateSubjectDescription(
+    user: SessionUser,
+    reportCardId: string,
+    subjectId: string,
+    dto: UpdateSubjectDescriptionDto,
+    req: Request,
+  ) {
+    const report = await this.policy.reportCardInSchool(user.schoolId, reportCardId);
+    this.requireDescriptionEditable(report.status);
+    if (user.role === "TEACHER") {
+      const covers = await this.policy.teacherCoversClass(user.id, report.classId, report.semesterId);
+      if (!covers) throw Errors.forbidden("Anda bukan wali kelas/pengajar kelas ini.");
+    }
+
+    const row = await this.prisma.reportCardSubject.findUnique({
+      where: { reportCardId_subjectId: { reportCardId: report.id, subjectId } },
+    });
+    if (!row) throw Errors.notFound("Mapel pada rapor");
+
+    const updated = await this.prisma.reportCardSubject.update({
+      where: { id: row.id },
+      data: { description: dto.description.trim(), descriptionSource: "MANUAL" },
+    });
+    await this.audit.log({
+      req,
+      schoolId: user.schoolId,
+      actorUserId: user.id,
+      action: AuditAction.REPORT_DESCRIPTION_UPDATE,
+      entityType: "ReportCardSubject",
+      entityId: row.id,
+      beforeJson: { description: row.description, descriptionSource: row.descriptionSource },
+      afterJson: { description: updated.description, descriptionSource: updated.descriptionSource },
+    });
+    return {
+      id: updated.id,
+      subjectId: updated.subjectId,
+      description: updated.description,
+      descriptionSource: updated.descriptionSource,
+    };
+  }
+
+  /**
+   * Kembalikan deskripsi satu mapel ke hasil generator otomatis
+   * (dihitung ulang dari data nilai terkini).
+   */
+  async resetSubjectDescription(
+    user: SessionUser,
+    reportCardId: string,
+    subjectId: string,
+    req: Request,
+  ) {
+    const report = await this.policy.reportCardInSchool(user.schoolId, reportCardId);
+    this.requireDescriptionEditable(report.status);
+    if (user.role === "TEACHER") {
+      const covers = await this.policy.teacherCoversClass(user.id, report.classId, report.semesterId);
+      if (!covers) throw Errors.forbidden("Anda bukan wali kelas/pengajar kelas ini.");
+    }
+
+    const row = await this.prisma.reportCardSubject.findUnique({
+      where: { reportCardId_subjectId: { reportCardId: report.id, subjectId } },
+    });
+    if (!row) throw Errors.notFound("Mapel pada rapor");
+
+    // Hitung ulang dari data terkini; melempar ASSESSMENT_INCOMPLETE bila
+    // nilai belum lengkap (perilaku sama seperti generate).
+    const computed = await this.computeReportData(
+      user, report.studentId, report.academicYearId, report.semesterId,
+    );
+    const fresh = computed.subjects.find((s) => s.subjectId === subjectId);
+    if (!fresh) {
+      throw Errors.notFound("Mapel pada perhitungan rapor terkini");
+    }
+
+    const updated = await this.prisma.reportCardSubject.update({
+      where: { id: row.id },
+      data: { description: fresh.description, descriptionSource: "AUTO" },
+    });
+    await this.audit.log({
+      req,
+      schoolId: user.schoolId,
+      actorUserId: user.id,
+      action: AuditAction.REPORT_DESCRIPTION_RESET,
+      entityType: "ReportCardSubject",
+      entityId: row.id,
+      beforeJson: { description: row.description, descriptionSource: row.descriptionSource },
+      afterJson: { description: updated.description, descriptionSource: updated.descriptionSource },
+    });
+    return {
+      id: updated.id,
+      subjectId: updated.subjectId,
+      description: updated.description,
+      descriptionSource: updated.descriptionSource,
+    };
+  }
+
+  private requireDescriptionEditable(status: string): void {
+    if (!["DRAFT", "REVIEW", "REVISION"].includes(status)) {
+      throw Errors.conflict(
+        ApiErrorCode.RESOURCE_CONFLICT,
+        "Deskripsi hanya dapat diubah pada rapor berstatus draf/review/revisi.",
+      );
+    }
+  }
+
   // ------------------------------------------------------------------
   // Shared computation used by generate() and revision().
   // ------------------------------------------------------------------
+
+  /**
+   * Menghitung nilai per TP untuk satu siswa: rata-rata skor ternormalisasi
+   * (0-100) dari penilaian yang dikaitkan ke TP tersebut. TP yang tidak
+   * punya nilai (siswa belum dinilai pada penilaian terkait) tidak disertakan.
+   */
+  private async computeTpScores(
+    assessments: Array<{ id: string; tpIds: string[] }>,
+    normalizedScores: Record<string, Decimal>,
+  ): Promise<Array<{ tpId: string; code: string; description: string; score: Decimal }>> {
+    const tpIds = [...new Set(assessments.flatMap((a) => a.tpIds))];
+    if (tpIds.length === 0) return [];
+
+    const tps = await this.prisma.learningObjective.findMany({
+      where: { id: { in: tpIds }, isActive: true },
+      include: { cp: { select: { code: true } } },
+    });
+    // Urut: kode CP lalu kode TP (stabil & mudah dibaca di rapor).
+    tps.sort((a, b) => a.cp.code.localeCompare(b.cp.code) || a.code.localeCompare(b.code));
+
+    const out: Array<{ tpId: string; code: string; description: string; score: Decimal }> = [];
+    for (const tp of tps) {
+      const values: Decimal[] = [];
+      for (const a of assessments) {
+        if (a.tpIds.includes(tp.id)) {
+          const v = normalizedScores[a.id];
+          if (v !== undefined) values.push(v);
+        }
+      }
+      if (values.length === 0) continue;
+      const avg = values.reduce((acc, v) => acc.plus(v), new Decimal(0)).div(values.length);
+      out.push({ tpId: tp.id, code: tp.code, description: tp.description, score: avg });
+    }
+    return out;
+  }
 
   private async computeReportData(
     user: SessionUser,
@@ -409,14 +565,23 @@ export class ReportsService {
           category: { isActive: true },
           maxScore: { gt: 0 },
         },
-        select: { id: true, categoryId: true, maxScore: true },
+        select: {
+          id: true,
+          categoryId: true,
+          maxScore: true,
+          learningObjectives: { select: { tpId: true } },
+        },
       });
       const scores = await this.prisma.assessmentScore.findMany({
         where: { studentId: student.id, assessmentId: { in: assessments.map((a) => a.id) } },
-        select: { assessmentId: true, score: true },
+        select: { assessmentId: true, score: true, normalizedScore: true },
       });
       const scoreMap: Record<string, Decimal.Value> = {};
-      for (const s of scores) scoreMap[s.assessmentId] = s.score.toString();
+      const normalizedMap: Record<string, Decimal> = {};
+      for (const s of scores) {
+        scoreMap[s.assessmentId] = s.score.toString();
+        normalizedMap[s.assessmentId] = new Decimal(s.normalizedScore.toString());
+      }
 
       const kktp = await this.prisma.kktpConfiguration.findFirst({
         where: { academicYearId: year.id, semesterId: semester.id, subjectId: subject.id },
@@ -444,21 +609,51 @@ export class ReportsService {
       }
 
       const finalScore = result.finalScore;
+
+      // Nilai per TP: rata-rata skor ternormalisasi dari penilaian yang
+      // dikaitkan ke TP tersebut (hanya TP yang punya nilai yang disebut).
+      const tpScores = await this.computeTpScores(
+        assessments.map((a) => ({
+          id: a.id,
+          tpIds: a.learningObjectives.map((l) => l.tpId).filter((t): t is string => t !== null),
+        })),
+        normalizedMap,
+      );
+
+      const tpDescription =
+        tpScores.length > 0 && kktp
+          ? generateTpDescription({
+              studentName: student.fullName,
+              tpScores: tpScores.map((t) => ({ code: t.code, description: t.description, score: t.score })),
+              kktpThreshold: kktp.threshold.toString(),
+            })
+          : null;
+      const description =
+        tpDescription ??
+        generateSubjectDescription({
+          studentName: student.fullName,
+          subjectName: subject.name,
+          finalScore,
+          achievement: result.achievement,
+          kktpThreshold: kktp ? kktp.threshold.toString() : null,
+        });
+
       computedSubjects.push({
         subjectId: subject.id,
         subjectName: subject.name,
         finalScore,
         kktpThreshold: kktp ? new Decimal(kktp.threshold.toString()) : null,
         achievement: result.achievement,
-        description: generateSubjectDescription({
-          studentName: student.fullName,
-          subjectName: subject.name,
-          finalScore,
-          achievement: result.achievement,
-          kktpThreshold: kktp ? kktp.threshold.toString() : null,
-        }),
+        description,
         snapshotJson: {
           schemeId: scheme.id,
+          descriptionSource: tpDescription ? "TP_AUTO" : "GENERIC_AUTO",
+          tpScores: tpScores.map((t) => ({
+            tpId: t.tpId,
+            code: t.code,
+            description: t.description,
+            score: t.score.toString(),
+          })),
           categoryAverages: result.categoryAverages.map((c) => ({
             categoryId: c.categoryId,
             average: c.average.toString(),
@@ -510,6 +705,18 @@ export function toReportJson(r: {
 }
 
 export function toReportDetailJson(r: Parameters<typeof toReportJson>[0] & {
+  cocurricularDescription: string | null;
+  homeroomNotes: string | null;
+  sickDays: number;
+  permissionDays: number;
+  unexcusedDays: number;
+  extracurriculars: Array<{
+    id: string;
+    name: string;
+    predicate: string;
+    description: string | null;
+    sortOrder: number;
+  }>;
   subjects: Array<{
     id: string;
     reportCardId: string;
@@ -519,11 +726,24 @@ export function toReportDetailJson(r: Parameters<typeof toReportJson>[0] & {
     kktpThreshold: unknown;
     achievement: string;
     description: string | null;
+    descriptionSource: string;
     snapshotJson: unknown;
   }>;
 }) {
   return {
     ...toReportJson(r),
+    cocurricularDescription: r.cocurricularDescription,
+    homeroomNotes: r.homeroomNotes,
+    sickDays: r.sickDays,
+    permissionDays: r.permissionDays,
+    unexcusedDays: r.unexcusedDays,
+    extracurriculars: r.extracurriculars.map((e) => ({
+      id: e.id,
+      name: e.name,
+      predicate: e.predicate,
+      description: e.description,
+      sortOrder: e.sortOrder,
+    })),
     subjects: r.subjects.map((s) => ({
       id: s.id,
       reportCardId: s.reportCardId,
@@ -533,6 +753,7 @@ export function toReportDetailJson(r: Parameters<typeof toReportJson>[0] & {
       kktpThreshold: s.kktpThreshold == null ? null : Number(new Decimal(s.kktpThreshold as Decimal.Value).toString()),
       achievement: s.achievement,
       description: s.description,
+      descriptionSource: s.descriptionSource,
       snapshotJson: s.snapshotJson,
     })),
   };

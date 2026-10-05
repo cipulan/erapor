@@ -261,6 +261,37 @@ export interface CreateTpInput {
   code: string;
   description: string;
 }
+export interface CurriculumOutcome {
+  id: string;
+  subjectId: string;
+  code: string;
+  description: string;
+  isActive: boolean;
+  tps?: LearningObjective[];
+}
+export interface LearningObjective {
+  id: string;
+  cpId: string;
+  code: string;
+  description: string;
+  isActive: boolean;
+}
+export interface UpdateCpInput {
+  code?: string;
+  description?: string;
+  isActive?: boolean;
+}
+export interface UpdateTpInput {
+  code?: string;
+  description?: string;
+  isActive?: boolean;
+}
+export interface AssessmentTp {
+  id: string;
+  code: string;
+  description: string;
+  cpId: string;
+}
 
 export interface TeacherAssignment {
   id: string;
@@ -337,6 +368,7 @@ export interface Assessment {
   assessmentDate: string | null;
   maxScore: number;
   status: AssessmentStatus;
+  tps?: AssessmentTp[];
 }
 export interface CreateAssessmentInput {
   teacherAssignmentId: string;
@@ -348,6 +380,7 @@ export interface CreateAssessmentInput {
   description?: string;
   assessmentDate?: string;
   maxScore: number;
+  tpIds?: string[];
 }
 export interface AssessmentScore {
   id: string;
@@ -410,6 +443,7 @@ export interface ReportCardSubject {
   kktpThreshold: number | null;
   achievement: AchievementStatus;
   description: string | null;
+  descriptionSource: string;
 }
 export interface ReportCard {
   id: string;
@@ -426,11 +460,58 @@ export interface ReportCard {
 }
 export interface ReportCardDetail extends ReportCard {
   subjects: ReportCardSubject[];
+  cocurricularDescription: string | null;
+  homeroomNotes: string | null;
+  sickDays: number;
+  permissionDays: number;
+  unexcusedDays: number;
+  extracurriculars: ExtracurricularEntry[];
 }
 export interface GenerateReportCardInput {
   studentId: string;
   academicYearId: string;
   semesterId: string;
+}
+
+/* ---------- Kelengkapan rapor & ekstrakurikuler ---------- */
+
+export interface ExtracurricularEntry {
+  id: string;
+  reportCardId: string;
+  name: string;
+  predicate: "A" | "B" | "C" | "D";
+  description: string | null;
+  sortOrder: number;
+}
+
+export interface UpdateCompletenessInput {
+  cocurricularDescription?: string | null;
+  homeroomNotes?: string | null;
+  sickDays?: number;
+  permissionDays?: number;
+  unexcusedDays?: number;
+}
+
+export interface ExtracurricularInput {
+  name: string;
+  predicate: "A" | "B" | "C" | "D";
+  description?: string | null;
+}
+
+export interface SubjectDescriptionResult {
+  id: string;
+  subjectId: string;
+  description: string | null;
+  descriptionSource: string;
+}
+
+export interface CompletenessResult {
+  reportCardId: string;
+  cocurricularDescription: string | null;
+  homeroomNotes: string | null;
+  sickDays: number;
+  permissionDays: number;
+  unexcusedDays: number;
 }
 
 export interface PromoteClassInput {

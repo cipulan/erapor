@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
-import type { Assessment, AssessmentScore, ClassItem, ImportPreview, Student, Subject } from "@erapor/api-client";
+import type { Assessment, AssessmentScore, ClassItem, CurriculumOutcome, ImportPreview, Student, Subject } from "@erapor/api-client";
 import { api } from "@/lib/api";
 import { errorMessage, formatDate } from "@/lib/format";
 import { useRequireAuth } from "@/components/auth";
@@ -25,6 +25,12 @@ export default function AssessmentDetailPage({ params }: { params: Promise<{ id:
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [importBusy, setImportBusy] = useState(false);
+
+  // TP yang diukur
+  const [editingTp, setEditingTp] = useState(false);
+  const [curriculum, setCurriculum] = useState<CurriculumOutcome[]>([]);
+  const [tpSelection, setTpSelection] = useState<string[]>([]);
+  const [tpLoading, setTpLoading] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -148,6 +154,40 @@ export default function AssessmentDetailPage({ params }: { params: Promise<{ id:
     }
   }
 
+  async function startEditTp() {
+    if (!assessment) return;
+    setError(""); setTpLoading(true);
+    try {
+      const list = await api().curriculum.listSubjectCurriculum(assessment.subjectId);
+      setCurriculum(list);
+      setTpSelection((assessment.tps ?? []).map((t) => t.id));
+      setEditingTp(true);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setTpLoading(false);
+    }
+  }
+
+  function toggleTpSelection(tpId: string) {
+    setTpSelection((prev) => (prev.includes(tpId) ? prev.filter((t) => t !== tpId) : [...prev, tpId]));
+  }
+
+  async function onSaveTp() {
+    setError(""); setSuccess("");
+    setSaving(true);
+    try {
+      await api().assessments.setTps(id, { tpIds: tpSelection });
+      setEditingTp(false);
+      setSuccess("TP yang diukur berhasil diperbarui.");
+      await load();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (authLoading || loading) return <Spinner />;
 
   const { bad } = validateAll();
@@ -163,6 +203,64 @@ export default function AssessmentDetailPage({ params }: { params: Promise<{ id:
       />
       <Alert kind="error">{error}</Alert>
       <Alert kind="success">{success}</Alert>
+
+      <Card
+        title="TP yang diukur"
+        actions={editingTp ? (
+          <div className="btn-row" style={{ marginTop: 0 }}>
+            <Button small variant="secondary" onClick={() => setEditingTp(false)} disabled={saving}>Batal</Button>
+            <Button small onClick={() => void onSaveTp()} disabled={saving || tpLoading}>{saving ? "Menyimpan..." : "Simpan"}</Button>
+          </div>
+        ) : (
+          <Button small variant="secondary" onClick={() => void startEditTp()}>Ubah</Button>
+        )}
+      >
+        {editingTp ? (
+          tpLoading ? <Spinner /> : curriculum.length === 0 ? (
+            <p className="muted small">Mapel ini belum punya TP. Tambahkan dulu di halaman detail mapel.</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {curriculum.map((cp) => {
+                const active = (cp.tps ?? []).filter((t) => t.isActive);
+                if (active.length === 0) return null;
+                return (
+                  <div key={cp.id}>
+                    <div className="small" style={{ fontWeight: 600, marginBottom: 4 }}>{cp.code}</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      {active.map((tp) => (
+                        <label
+                          key={tp.id}
+                          title={tp.description}
+                          style={{
+                            display: "inline-flex", alignItems: "center", gap: 6,
+                            border: tpSelection.includes(tp.id) ? "2px solid #5b2d8e" : "1.5px solid #d9cdf3",
+                            background: tpSelection.includes(tp.id) ? "#efe7fb" : "#fff",
+                            borderRadius: 999, padding: "6px 12px", fontSize: 13, cursor: "pointer",
+                          }}
+                        >
+                          <input type="checkbox" checked={tpSelection.includes(tp.id)} onChange={() => toggleTpSelection(tp.id)} />
+                          <b>{tp.code}</b>
+                          <span className="muted small">{tp.description.length > 50 ? `${tp.description.slice(0, 50)}…` : tp.description}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )
+        ) : (assessment?.tps?.length ?? 0) === 0 ? (
+          <EmptyState text="Belum ada TP terkait. Penilaian ini tetap masuk hitungan nilai akhir." />
+        ) : (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {(assessment?.tps ?? []).map((tp) => (
+              <span key={tp.id} className="badge blue" title={tp.description} style={{ fontSize: 13, padding: "6px 12px" }}>
+                <b>{tp.code}</b>&nbsp;· {tp.description.length > 60 ? `${tp.description.slice(0, 60)}…` : tp.description}
+              </span>
+            ))}
+          </div>
+        )}
+      </Card>
 
       <Card
         title="Input nilai (bulk)"

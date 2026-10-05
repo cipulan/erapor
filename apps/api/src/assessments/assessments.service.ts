@@ -8,7 +8,7 @@ import { Errors } from "../common/errors/api-exception";
 import { ApiErrorCode } from "../common/errors/error-codes";
 import type { SessionUser } from "../auth/types/session-user";
 import { normalizeScore } from "../grading/grading-engine";
-import { BulkScoresDto, CreateAssessmentDto, ScoreItemDto } from "./dto/assessment.dto";
+import { BulkScoresDto, CreateAssessmentDto, ScoreItemDto, SetAssessmentTpsDto } from "./dto/assessment.dto";
 
 @Injectable()
 export class AssessmentsService {
@@ -87,6 +87,8 @@ export class AssessmentsService {
       throw Errors.validation(ApiErrorCode.VALIDATION_ERROR, "Nilai maksimum harus lebih dari 0.");
     }
 
+    const tpLinks = await this.resolveTpLinks(dto.subjectId, dto.tpIds ?? []);
+
     const assessment = await this.prisma.assessment.create({
       data: {
         teacherAssignmentId: assignment.id,
@@ -100,6 +102,9 @@ export class AssessmentsService {
         assessmentDate: dto.assessmentDate ? new Date(dto.assessmentDate) : null,
         maxScore: new Decimal(dto.maxScore),
         status: dto.status ?? "DRAFT",
+        learningObjectives: {
+          create: tpLinks.map((l) => ({ cpId: l.cpId, tpId: l.tpId })),
+        },
       },
     });
     await this.audit.log({
@@ -120,7 +125,91 @@ export class AssessmentsService {
       where: { assessmentId: assessment.id },
       include: { student: { select: { id: true, fullName: true, nis: true } } },
     });
-    return { ...toAssessmentJson(assessment), scores: scores.map(toScoreJson) };
+    const tps = await this.prisma.assessmentLearningObjective.findMany({
+      where: { assessmentId: assessment.id },
+      include: { tp: { select: { id: true, code: true, description: true, cpId: true } } },
+      orderBy: { tp: { code: "asc" } },
+    });
+    return {
+      ...toAssessmentJson(assessment),
+      tps: tps
+        .filter((l) => l.tp)
+        .map((l) => ({
+          id: l.tp!.id,
+          code: l.tp!.code,
+          description: l.tp!.description,
+          cpId: l.tp!.cpId,
+        })),
+      scores: scores.map(toScoreJson),
+    };
+  }
+
+  /**
+   * Mengganti daftar TP yang diukur oleh asesmen. TP harus aktif dan
+   * milik mata pelajaran yang sama dengan asesmen.
+   */
+  async setTps(user: SessionUser, id: string, dto: SetAssessmentTpsDto, req: Request) {
+    const assessment = await this.scopedAssessment(user, id);
+    const tpLinks = await this.resolveTpLinks(assessment.subjectId, dto.tpIds);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.assessmentLearningObjective.deleteMany({
+        where: { assessmentId: assessment.id },
+      });
+      if (tpLinks.length > 0) {
+        await tx.assessmentLearningObjective.createMany({
+          data: tpLinks.map((l) => ({
+            assessmentId: assessment.id,
+            cpId: l.cpId,
+            tpId: l.tpId,
+          })),
+        });
+      }
+    });
+    await this.audit.log({
+      req,
+      schoolId: user.schoolId,
+      actorUserId: user.id,
+      action: AuditAction.ASSESSMENT_TPS_UPDATE,
+      entityType: "Assessment",
+      entityId: assessment.id,
+      afterJson: { assessmentId: assessment.id, tpIds: tpLinks.map((l) => l.tpId) },
+    });
+    return this.get(user, id);
+  }
+
+  /**
+   * Validasi daftar TP: harus ada, aktif, dan milik mapel yang sama.
+   * Mengembalikan pasangan cpId/tpId untuk penulisan relasi.
+   */
+  private async resolveTpLinks(
+    subjectId: string,
+    tpIds: string[],
+  ): Promise<Array<{ cpId: string; tpId: string }>> {
+    const unique = [...new Set(tpIds)];
+    if (unique.length === 0) return [];
+    const tps = await this.prisma.learningObjective.findMany({
+      where: { id: { in: unique } },
+      include: { cp: { select: { id: true, subjectId: true } } },
+    });
+    if (tps.length !== unique.length) {
+      throw Errors.validation(ApiErrorCode.VALIDATION_ERROR, "Sebagian TP tidak ditemukan.");
+    }
+    for (const tp of tps) {
+      if (!tp.isActive) {
+        throw Errors.validation(ApiErrorCode.VALIDATION_ERROR, `TP ${tp.code} sudah tidak aktif.`, {
+          tpId: tp.id,
+        });
+      }
+      if (tp.cp.subjectId !== subjectId) {
+        throw Errors.validation(
+          ApiErrorCode.VALIDATION_ERROR,
+          `TP ${tp.code} bukan milik mata pelajaran asesmen ini.`,
+          { tpId: tp.id },
+        );
+      }
+    }
+    return tps.map((tp) => ({ cpId: tp.cp.id, tpId: tp.id }));
   }
 
   async listScores(user: SessionUser, id: string) {

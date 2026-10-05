@@ -101,7 +101,11 @@ export class ResourcePolicyService {
         id: reportCardId,
         student: { schoolId },
       },
-      include: { subjects: true, student: true },
+      include: {
+        subjects: true,
+        student: true,
+        extracurriculars: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
+      },
     });
     if (!report) throw Errors.notFound("Rapor");
     return report;
@@ -114,6 +118,15 @@ export class ResourcePolicyService {
     });
     if (!cp) throw Errors.notFound("CP");
     return cp;
+  }
+
+  async tpInSchool(schoolId: string, tpId: string) {
+    const tp = await this.prisma.learningObjective.findFirst({
+      where: { id: tpId, cp: { subject: { schoolId } } },
+      include: { cp: { include: { subject: true } } },
+    });
+    if (!tp) throw Errors.notFound("TP");
+    return tp;
   }
 
   // ------------------------------------------------------------------

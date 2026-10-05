@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import type { AcademicYear, Assessment, AssessmentCategory, ClassItem, Semester, Subject, TeacherAssignment } from "@erapor/api-client";
+import type { AcademicYear, Assessment, AssessmentCategory, ClassItem, CurriculumOutcome, Semester, Subject, TeacherAssignment } from "@erapor/api-client";
 import { api } from "@/lib/api";
 import { errorMessage, formatDate } from "@/lib/format";
 import { useAuth, useRequireAuth } from "@/components/auth";
@@ -29,6 +29,21 @@ export default function PenilaianPage() {
     categoryId: "", title: "", description: "", assessmentDate: "", maxScore: "100",
   });
   const [saving, setSaving] = useState(false);
+  const [curriculum, setCurriculum] = useState<CurriculumOutcome[]>([]);
+  const [tpLoading, setTpLoading] = useState(false);
+  const [selectedTps, setSelectedTps] = useState<string[]>([]);
+
+  // Muat TP mapel terpilih untuk dipilih saat membuat assessment; reset saat mapel diganti.
+  useEffect(() => {
+    const sid = form.subjectId;
+    setSelectedTps([]);
+    if (!sid || !showForm) { setCurriculum([]); return; }
+    setTpLoading(true);
+    api().curriculum.listSubjectCurriculum(sid)
+      .then(setCurriculum)
+      .catch((err) => setError(errorMessage(err)))
+      .finally(() => setTpLoading(false));
+  }, [form.subjectId, showForm]);
 
   const load = useCallback(async (f: typeof filters) => {
     setLoading(true);
@@ -117,8 +132,11 @@ export default function PenilaianPage() {
         description: form.description.trim() || undefined,
         assessmentDate: form.assessmentDate || undefined,
         maxScore,
+        tpIds: selectedTps.length > 0 ? selectedTps : undefined,
       });
       setShowForm(false);
+      setCurriculum([]);
+      setSelectedTps([]);
       window.location.href = `/penilaian/${a.id}`;
     } catch (err) {
       setError(errorMessage(err));
@@ -128,6 +146,10 @@ export default function PenilaianPage() {
   }
 
   const nameOf = (list: { id: string; name: string }[], id: string) => list.find((x) => x.id === id)?.name ?? "—";
+
+  function toggleTp(tpId: string) {
+    setSelectedTps((prev) => (prev.includes(tpId) ? prev.filter((t) => t !== tpId) : [...prev, tpId]));
+  }
 
   if (authLoading) return <Spinner />;
 
@@ -234,6 +256,47 @@ export default function PenilaianPage() {
               <Field label="Tanggal"><input type="date" value={form.assessmentDate} onChange={(e) => setForm({ ...form, assessmentDate: e.target.value })} /></Field>
             </div>
             <Field label="Deskripsi"><textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></Field>
+            {form.subjectId && (
+              <Field label="Tujuan Pembelajaran (TP)" hint="Opsional — penilaian tanpa TP tetap masuk nilai akhir.">
+                {tpLoading ? <Spinner /> : curriculum.length === 0 ? (
+                  <p className="muted small">Mapel ini belum punya TP. Tambahkan dulu di halaman detail mapel.</p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {curriculum.map((cp) => {
+                      const active = (cp.tps ?? []).filter((t) => t.isActive);
+                      if (active.length === 0) return null;
+                      return (
+                        <div key={cp.id}>
+                          <div className="small" style={{ fontWeight: 600, marginBottom: 4 }}>{cp.code}</div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                            {active.map((tp) => (
+                              <label
+                                key={tp.id}
+                                title={tp.description}
+                                style={{
+                                  display: "inline-flex", alignItems: "center", gap: 6,
+                                  border: selectedTps.includes(tp.id) ? "2px solid #5b2d8e" : "1.5px solid #d9cdf3",
+                                  background: selectedTps.includes(tp.id) ? "#efe7fb" : "#fff",
+                                  borderRadius: 999, padding: "6px 12px", fontSize: 13, cursor: "pointer",
+                                }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={selectedTps.includes(tp.id)}
+                                  onChange={() => toggleTp(tp.id)}
+                                />
+                                <b>{tp.code}</b>
+                                <span className="muted small">{tp.description.length > 50 ? `${tp.description.slice(0, 50)}…` : tp.description}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </Field>
+            )}
             <div className="btn-row">
               <Button type="submit" disabled={saving}>{saving ? "Menyimpan..." : "Simpan"}</Button>
               <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>Batal</Button>

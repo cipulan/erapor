@@ -373,6 +373,33 @@ paths:
         content: { application/json: { schema: { $ref: '#/components/schemas/CreateCpRequest' } } }
       responses:
         '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/CurriculumOutcome' } } } }
+  /subjects/{subjectId}/curriculum:
+    get:
+      tags: [Curriculum]
+      operationId: listSubjectCurriculum
+      parameters: [{ $ref: '#/components/parameters/SubjectId' }]
+      responses:
+        '200': { description: Curriculum outcomes with learning objectives (ordered by code), content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/CurriculumOutcomeWithTps' } } } } }
+  /cp/{cpId}:
+    patch:
+      tags: [Curriculum]
+      operationId: updateCp
+      parameters: [{ $ref: '#/components/parameters/CpId' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/UpdateCpRequest' } } }
+      responses:
+        '200': { description: Updated, content: { application/json: { schema: { $ref: '#/components/schemas/CurriculumOutcome' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    delete:
+      tags: [Curriculum]
+      operationId: deleteCp
+      parameters: [{ $ref: '#/components/parameters/CpId' }]
+      responses:
+        '200': { description: Deleted, content: { application/json: { schema: { $ref: '#/components/schemas/OkResult' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /cp/{cpId}/tp:
     post:
       tags: [Curriculum]
@@ -383,6 +410,26 @@ paths:
         content: { application/json: { schema: { $ref: '#/components/schemas/CreateTpRequest' } } }
       responses:
         '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/LearningObjective' } } } }
+  /tp/{tpId}:
+    patch:
+      tags: [Curriculum]
+      operationId: updateTp
+      parameters: [{ $ref: '#/components/parameters/TpId' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/UpdateTpRequest' } } }
+      responses:
+        '200': { description: Updated, content: { application/json: { schema: { $ref: '#/components/schemas/LearningObjective' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    delete:
+      tags: [Curriculum]
+      operationId: deleteTp
+      parameters: [{ $ref: '#/components/parameters/TpId' }]
+      responses:
+        '200': { description: Deleted, content: { application/json: { schema: { $ref: '#/components/schemas/OkResult' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
 
   /teacher-assignments:
     get:
@@ -489,6 +536,18 @@ paths:
       responses:
         '200': { description: Assessment, content: { application/json: { schema: { $ref: '#/components/schemas/AssessmentDetail' } } } }
         '404': { $ref: '#/components/responses/NotFound' }
+  /assessments/{assessmentId}/tps:
+    put:
+      tags: [Assessments]
+      operationId: setAssessmentTps
+      parameters: [{ $ref: '#/components/parameters/AssessmentId' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/SetAssessmentTpsRequest' } } }
+      responses:
+        '200': { description: Assessment, content: { application/json: { schema: { $ref: '#/components/schemas/AssessmentDetail' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
   /assessments/{assessmentId}/scores:
     get:
       tags: [Assessments]
@@ -642,6 +701,83 @@ paths:
           description: PDF
           content: { application/pdf: { schema: { type: string, format: binary } } }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /report-cards/{reportCardId}/subjects/{subjectId}/description:
+    patch:
+      tags: [Reports]
+      operationId: updateSubjectDescription
+      parameters: [{ $ref: '#/components/parameters/ReportCardId' }, { $ref: '#/components/parameters/SubjectId' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/UpdateSubjectDescriptionRequest' } } }
+      responses:
+        '200': { description: Updated description, content: { application/json: { schema: { $ref: '#/components/schemas/SubjectDescriptionResult' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /report-cards/{reportCardId}/subjects/{subjectId}/description/reset:
+    post:
+      tags: [Reports]
+      operationId: resetSubjectDescription
+      parameters: [{ $ref: '#/components/parameters/ReportCardId' }, { $ref: '#/components/parameters/SubjectId' }]
+      responses:
+        '200': { description: Reset to generated description, content: { application/json: { schema: { $ref: '#/components/schemas/SubjectDescriptionResult' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /report-cards/{reportCardId}/completeness:
+    patch:
+      tags: [Reports]
+      operationId: updateReportCompleteness
+      parameters: [{ $ref: '#/components/parameters/ReportCardId' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/UpdateCompletenessRequest' } } }
+      responses:
+        '200': { description: Updated completeness, content: { application/json: { schema: { $ref: '#/components/schemas/CompletenessResult' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /report-cards/{reportCardId}/extracurriculars:
+    get:
+      tags: [Reports]
+      operationId: listExtracurriculars
+      parameters: [{ $ref: '#/components/parameters/ReportCardId' }]
+      responses:
+        '200': { description: Extracurricular entries, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/ExtracurricularEntry' } } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [Reports]
+      operationId: createExtracurricular
+      parameters: [{ $ref: '#/components/parameters/ReportCardId' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ExtracurricularRequest' } } }
+      responses:
+        '201': { description: Created entry, content: { application/json: { schema: { $ref: '#/components/schemas/ExtracurricularEntry' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /report-cards/{reportCardId}/extracurriculars/{entryId}:
+    patch:
+      tags: [Reports]
+      operationId: updateExtracurricular
+      parameters: [{ $ref: '#/components/parameters/ReportCardId' }, { $ref: '#/components/parameters/ExtracurricularEntryId' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ExtracurricularRequest' } } }
+      responses:
+        '200': { description: Updated entry, content: { application/json: { schema: { $ref: '#/components/schemas/ExtracurricularEntry' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [Reports]
+      operationId: deleteExtracurricular
+      parameters: [{ $ref: '#/components/parameters/ReportCardId' }, { $ref: '#/components/parameters/ExtracurricularEntryId' }]
+      responses:
+        '204': { description: Deleted }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
 
   /classes/{classId}/promote:
     post:
@@ -683,9 +819,11 @@ components:
     ClassId: { in: path, name: classId, required: true, schema: { $ref: '#/components/schemas/UUID' } }
     SubjectId: { in: path, name: subjectId, required: true, schema: { $ref: '#/components/schemas/UUID' } }
     CpId: { in: path, name: cpId, required: true, schema: { $ref: '#/components/schemas/UUID' } }
+    TpId: { in: path, name: tpId, required: true, schema: { $ref: '#/components/schemas/UUID' } }
     GradingSchemeId: { in: path, name: gradingSchemeId, required: true, schema: { $ref: '#/components/schemas/UUID' } }
     AssessmentId: { in: path, name: assessmentId, required: true, schema: { $ref: '#/components/schemas/UUID' } }
     ReportCardId: { in: path, name: reportCardId, required: true, schema: { $ref: '#/components/schemas/UUID' } }
+    ExtracurricularEntryId: { in: path, name: entryId, required: true, schema: { $ref: '#/components/schemas/UUID' } }
     UserId: { in: path, name: userId, required: true, schema: { $ref: '#/components/schemas/UUID' } }
 
   responses:
@@ -1017,6 +1155,29 @@ components:
       properties:
         code: { type: string }
         description: { type: string }
+    UpdateCpRequest:
+      type: object
+      properties:
+        code: { type: string }
+        description: { type: string }
+        isActive: { type: boolean }
+    UpdateTpRequest:
+      type: object
+      properties:
+        code: { type: string }
+        description: { type: string }
+        isActive: { type: boolean }
+    CurriculumOutcomeWithTps:
+      allOf:
+        - $ref: '#/components/schemas/CurriculumOutcome'
+        - type: object
+          properties:
+            tps: { type: array, items: { $ref: '#/components/schemas/LearningObjective' } }
+    OkResult:
+      type: object
+      required: [ok]
+      properties:
+        ok: { type: boolean }
 
     TeacherAssignment:
       type: object
@@ -1107,6 +1268,7 @@ components:
         assessmentDate: { allOf: [{ $ref: '#/components/schemas/Date' }], nullable: true }
         maxScore: { type: number, exclusiveMinimum: 0 }
         status: { $ref: '#/components/schemas/AssessmentStatus' }
+        tps: { type: array, items: { $ref: '#/components/schemas/AssessmentTp' } }
     CreateAssessmentRequest:
       type: object
       required: [teacherAssignmentId, semesterId, classId, subjectId, categoryId, title, maxScore]
@@ -1120,6 +1282,20 @@ components:
         description: { type: string }
         assessmentDate: { $ref: '#/components/schemas/Date' }
         maxScore: { type: number, exclusiveMinimum: 0 }
+        tpIds: { type: array, items: { $ref: '#/components/schemas/UUID' } }
+    AssessmentTp:
+      type: object
+      required: [id, code, description, cpId]
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        code: { type: string }
+        description: { type: string }
+        cpId: { $ref: '#/components/schemas/UUID' }
+    SetAssessmentTpsRequest:
+      type: object
+      required: [tpIds]
+      properties:
+        tpIds: { type: array, items: { $ref: '#/components/schemas/UUID' } }
     AssessmentScore:
       type: object
       required: [id, assessmentId, studentId, score, normalizedScore]
@@ -1235,6 +1411,7 @@ components:
         kktpThreshold: { type: number, minimum: 0, maximum: 100, nullable: true }
         achievement: { $ref: '#/components/schemas/AchievementStatus' }
         description: { type: string, nullable: true }
+        descriptionSource: { type: string, enum: [AUTO, MANUAL] }
         snapshotJson: { type: object, additionalProperties: true, nullable: true }
     ReportCard:
       type: object
@@ -1258,6 +1435,12 @@ components:
           required: [subjects]
           properties:
             subjects: { type: array, items: { $ref: '#/components/schemas/ReportCardSubject' } }
+            cocurricularDescription: { type: string, nullable: true }
+            homeroomNotes: { type: string, nullable: true }
+            sickDays: { type: integer, minimum: 0 }
+            permissionDays: { type: integer, minimum: 0 }
+            unexcusedDays: { type: integer, minimum: 0 }
+            extracurriculars: { type: array, items: { $ref: '#/components/schemas/ExtracurricularEntry' } }
     GenerateReportCardRequest:
       type: object
       required: [studentId, academicYearId, semesterId]
@@ -1270,6 +1453,54 @@ components:
       required: [reason]
       properties:
         reason: { type: string, minLength: 1 }
+    UpdateSubjectDescriptionRequest:
+      type: object
+      required: [description]
+      properties:
+        description: { type: string, minLength: 1, maxLength: 2000 }
+    SubjectDescriptionResult:
+      type: object
+      required: [id, subjectId, descriptionSource]
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        subjectId: { $ref: '#/components/schemas/UUID' }
+        description: { type: string, nullable: true }
+        descriptionSource: { type: string, enum: [AUTO, MANUAL] }
+    UpdateCompletenessRequest:
+      type: object
+      properties:
+        cocurricularDescription: { type: string, nullable: true }
+        homeroomNotes: { type: string, nullable: true }
+        sickDays: { type: integer, minimum: 0 }
+        permissionDays: { type: integer, minimum: 0 }
+        unexcusedDays: { type: integer, minimum: 0 }
+    CompletenessResult:
+      type: object
+      required: [reportCardId, sickDays, permissionDays, unexcusedDays]
+      properties:
+        reportCardId: { $ref: '#/components/schemas/UUID' }
+        cocurricularDescription: { type: string, nullable: true }
+        homeroomNotes: { type: string, nullable: true }
+        sickDays: { type: integer, minimum: 0 }
+        permissionDays: { type: integer, minimum: 0 }
+        unexcusedDays: { type: integer, minimum: 0 }
+    ExtracurricularEntry:
+      type: object
+      required: [id, reportCardId, name, predicate, sortOrder]
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        reportCardId: { $ref: '#/components/schemas/UUID' }
+        name: { type: string }
+        predicate: { type: string, enum: [A, B, C, D] }
+        description: { type: string, nullable: true }
+        sortOrder: { type: integer, minimum: 0 }
+    ExtracurricularRequest:
+      type: object
+      required: [name, predicate]
+      properties:
+        name: { type: string, minLength: 1 }
+        predicate: { type: string, enum: [A, B, C, D] }
+        description: { type: string, nullable: true }
 
     PromoteClassRequest:
       type: object

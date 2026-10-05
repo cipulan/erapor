@@ -24,7 +24,7 @@ import { ApiErrorCode } from "../common/errors/error-codes";
 import type { SessionUser } from "../auth/types/session-user";
 import { AssessmentsService } from "./assessments.service";
 import { ImportService } from "./import.service";
-import { BulkScoresDto, CreateAssessmentDto, ImportCommitDto } from "./dto/assessment.dto";
+import { BulkScoresDto, CreateAssessmentDto, ImportCommitDto, SetAssessmentTpsDto } from "./dto/assessment.dto";
 
 @Controller("assessments")
 export class AssessmentsController {
@@ -50,6 +50,17 @@ export class AssessmentsController {
   @Roles("SUPERADMIN", "TEACHER")
   async get(@CurrentUser() user: SessionUser, @Param("id") id: string) {
     return this.service.get(user, id);
+  }
+
+  @Put(":id/tps")
+  @Roles("SUPERADMIN", "TEACHER")
+  async setTps(
+    @CurrentUser() user: SessionUser,
+    @Param("id") id: string,
+    @Body() dto: SetAssessmentTpsDto,
+    @Req() req: Request,
+  ) {
+    return this.service.setTps(user, id, dto, req);
   }
 
   @Get(":id/scores")

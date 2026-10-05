@@ -8,6 +8,7 @@ import type {
   BulkScoresInput,
   ChangePasswordInput,
   ClassItem,
+  CompletenessResult,
   CreateAcademicYearInput,
   CreateAssessmentCategoryInput,
   CreateAssessmentInput,
@@ -22,8 +23,11 @@ import type {
   CreateTpInput,
   CreateUserInput,
   CreateUserResult,
+  CurriculumOutcome,
   DashboardStats,
   ErrorBody,
+  ExtracurricularEntry,
+  ExtracurricularInput,
   GenerateReportCardInput,
   GradePreview,
   GradingScheme,
@@ -31,10 +35,15 @@ import type {
   ImportCommitResult,
   ImportPreview,
   KktpConfiguration,
+  LearningObjective,
   LinkGuardianInput,
   ManageableRole,
   MessageResult,
   Paginated,
+  SubjectDescriptionResult,
+  UpdateCompletenessInput,
+  UpdateCpInput,
+  UpdateTpInput,
   UserRole,
   PromoteClassInput,
   PromotionResult,
@@ -259,9 +268,17 @@ export function createApiClient(options: ClientOptions) {
       create: (data: CreateSubjectInput) => post<Subject>("/subjects", data),
     },
     curriculum: {
+      listSubjectCurriculum: (subjectId: string) =>
+        get<CurriculumOutcome[]>(`/subjects/${subjectId}/curriculum`),
       createCp: (subjectId: string, data: CreateCpInput) =>
         post<{ id: string }>(`/subjects/${subjectId}/cp`, data),
+      updateCp: (cpId: string, data: UpdateCpInput) =>
+        patch<CurriculumOutcome>(`/cp/${cpId}`, data),
+      deleteCp: (cpId: string) => del<{ ok: boolean }>(`/cp/${cpId}`),
       createTp: (cpId: string, data: CreateTpInput) => post<{ id: string }>(`/cp/${cpId}/tp`, data),
+      updateTp: (tpId: string, data: UpdateTpInput) =>
+        patch<LearningObjective>(`/tp/${tpId}`, data),
+      deleteTp: (tpId: string) => del<{ ok: boolean }>(`/tp/${tpId}`),
     },
 
     // ---- Penugasan guru ----
@@ -301,6 +318,8 @@ export function createApiClient(options: ClientOptions) {
         get<Assessment[]>(`/assessments${buildQuery(params)}`),
       create: (data: CreateAssessmentInput) => post<Assessment>("/assessments", data),
       get: (id: string) => get<Assessment>(`/assessments/${id}`),
+      setTps: (id: string, data: { tpIds: string[] }) =>
+        put<Assessment>(`/assessments/${id}/tps`, data),
     },
     scores: {
       list: (assessmentId: string) => get<AssessmentScore[]>(`/assessments/${assessmentId}/scores`),
@@ -340,6 +359,23 @@ export function createApiClient(options: ClientOptions) {
       revision: (id: string, reason: string) =>
         post<ReportCardDetail>(`/report-cards/${id}/revision`, { reason }),
       pdfUrl: (id: string) => `/api/v1/report-cards/${id}/pdf`,
+      // ---- Deskripsi per mapel (Fase 3) ----
+      updateSubjectDescription: (id: string, subjectId: string, data: { description: string }) =>
+        patch<SubjectDescriptionResult>(`/report-cards/${id}/subjects/${subjectId}/description`, data),
+      resetSubjectDescription: (id: string, subjectId: string) =>
+        post<SubjectDescriptionResult>(`/report-cards/${id}/subjects/${subjectId}/description/reset`),
+      // ---- Kelengkapan rapor (Fase 4) ----
+      updateCompleteness: (id: string, data: UpdateCompletenessInput) =>
+        patch<CompletenessResult>(`/report-cards/${id}/completeness`, data),
+      extracurriculars: {
+        list: (id: string) => get<ExtracurricularEntry[]>(`/report-cards/${id}/extracurriculars`),
+        create: (id: string, data: ExtracurricularInput) =>
+          post<ExtracurricularEntry>(`/report-cards/${id}/extracurriculars`, data),
+        update: (id: string, entryId: string, data: ExtracurricularInput) =>
+          patch<ExtracurricularEntry>(`/report-cards/${id}/extracurriculars/${entryId}`, data),
+        remove: (id: string, entryId: string) =>
+          del<void>(`/report-cards/${id}/extracurriculars/${entryId}`),
+      },
     },
 
     // ---- Kenaikan kelas ----

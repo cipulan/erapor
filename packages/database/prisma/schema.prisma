@@ -543,6 +543,11 @@ model ReportCard {
   lockedById     String?          @db.Uuid @map("locked_by_id")
   publishedById  String?          @db.Uuid @map("published_by_id")
   notes          String?
+  cocurricularDescription String? @map("cocurricular_description")
+  homeroomNotes  String?          @map("homeroom_notes")
+  sickDays       Int              @default(0) @map("sick_days")
+  permissionDays Int              @default(0) @map("permission_days")
+  unexcusedDays  Int              @default(0) @map("unexcused_days")
   createdAt      DateTime         @default(now()) @map("created_at")
   updatedAt      DateTime         @updatedAt @map("updated_at")
 
@@ -554,11 +559,27 @@ model ReportCard {
   lockedBy     User?               @relation("ReportLocker", fields: [lockedById], references: [id], onDelete: SetNull)
   publishedBy  User?               @relation("ReportPublisher", fields: [publishedById], references: [id], onDelete: SetNull)
   subjects     ReportCardSubject[]
+  extracurriculars ExtracurricularEntry[]
 
   @@unique([studentId, academicYearId, semesterId, version])
   @@index([academicYearId, semesterId, classId, status])
   @@index([studentId, academicYearId, semesterId])
   @@map("report_cards")
+}
+
+model ExtracurricularEntry {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reportCardId String   @db.Uuid @map("report_card_id")
+  name         String
+  predicate    String
+  description  String?
+  sortOrder    Int      @default(0) @map("sort_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  reportCard ReportCard @relation(fields: [reportCardId], references: [id], onDelete: Cascade)
+
+  @@index([reportCardId])
+  @@map("extracurricular_entries")
 }
 
 model ReportCardSubject {
@@ -570,6 +591,7 @@ model ReportCardSubject {
   kktpThreshold  Decimal?          @db.Decimal(5, 2) @map("kktp_threshold")
   achievement    AchievementStatus @default(NOT_ASSESSED)
   description    String?
+  descriptionSource String         @default("AUTO") @map("description_source")
   snapshotJson   Json?             @map("snapshot_json")
   createdAt      DateTime          @default(now()) @map("created_at")
 

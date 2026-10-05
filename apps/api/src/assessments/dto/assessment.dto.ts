@@ -11,7 +11,6 @@ import {
   ValidateNested,
 } from "class-validator";
 import { Type } from "class-transformer";
-
 export class CreateAssessmentDto {
   @IsUUID("4", { message: "teacherAssignmentId tidak valid." })
   teacherAssignmentId!: string;
@@ -47,6 +46,17 @@ export class CreateAssessmentDto {
   @IsOptional()
   @IsIn(["DRAFT", "PUBLISHED", "CLOSED"], { message: "Status asesmen tidak valid." })
   status?: "DRAFT" | "PUBLISHED" | "CLOSED";
+
+  @IsOptional()
+  @IsArray({ message: "Daftar TP harus berupa array." })
+  @IsUUID("4", { each: true, message: "tpId tidak valid." })
+  tpIds?: string[];
+}
+
+export class SetAssessmentTpsDto {
+  @IsArray({ message: "Daftar TP harus berupa array." })
+  @IsUUID("4", { each: true, message: "tpId tidak valid." })
+  tpIds!: string[];
 }
 
 export class ScoreItemDto {
