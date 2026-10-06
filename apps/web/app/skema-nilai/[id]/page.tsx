@@ -5,7 +5,7 @@ import type { AssessmentCategory, GradingScheme } from "@erapor/api-client";
 import { api } from "@/lib/api";
 import { errorMessage, formatDateTime } from "@/lib/format";
 import { useRequireAuth } from "@/components/auth";
-import { Alert, Badge, Button, Card, Field, PageHeader, Spinner } from "@/components/ui";
+import { Alert, Badge, Button, Card, Field, Modal, PageHeader, Spinner } from "@/components/ui";
 
 export default function SkemaDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -17,6 +17,8 @@ export default function SkemaDetailPage({ params }: { params: Promise<{ id: stri
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [saving, setSaving] = useState(false);
+  const [showUnlock, setShowUnlock] = useState(false);
+  const [unlockReason, setUnlockReason] = useState("");
 
   async function load() {
     setLoading(true);
@@ -46,7 +48,9 @@ export default function SkemaDetailPage({ params }: { params: Promise<{ id: stri
   useEffect(() => { void load(); }, [id]);
 
   const total = weights.reduce((sum, w) => sum + (parseFloat(w.weight) || 0), 0);
-  const editable = scheme?.status === "DRAFT";
+  const isLocked = scheme?.isLocked === true;
+  const isPublished = scheme?.status === "PUBLISHED";
+  const editable = !isLocked && (scheme?.status === "DRAFT" || isPublished);
 
   function setWeight(i: number, v: string) {
     setWeights(weights.map((w, j) => (j === i ? { ...w, weight: v } : w)));
@@ -68,6 +72,7 @@ export default function SkemaDetailPage({ params }: { params: Promise<{ id: stri
       setError("Bobot harus angka 0–100.");
       return;
     }
+    if (isPublished && !confirm("Skema sudah dipublish. Perubahan bobot hanya mempengaruhi preview nilai dan rapor yang dibuat setelah ini — rapor yang sudah terbit tidak berubah. Lanjutkan?")) return;
     setSaving(true);
     try {
       const s = await api().gradingSchemes.replaceWeights(id, { weights: parsed });
@@ -85,7 +90,7 @@ export default function SkemaDetailPage({ params }: { params: Promise<{ id: stri
       setError("Total bobot harus tepat 100% sebelum publish.");
       return;
     }
-    if (!confirm("Publish skema? Setelah publish, bobot tidak bisa diubah lagi.")) return;
+    if (!confirm("Publish skema? Setelah publish, bobot masih bisa diubah sampai skema dikunci.")) return;
     setError(""); setSuccess("");
     setSaving(true);
     try {
@@ -114,18 +119,56 @@ export default function SkemaDetailPage({ params }: { params: Promise<{ id: stri
     }
   }
 
+  async function onLock() {
+    if (!confirm("Kunci skema? Setelah dikunci, bobot tidak dapat diubah lagi sampai dibuka kuncinya. Biasanya dilakukan di akhir semester setelah ujian akhir.")) return;
+    setError(""); setSuccess("");
+    setSaving(true);
+    try {
+      const s = await api().gradingSchemes.lock(id);
+      setScheme(s);
+      setSuccess("Skema berhasil dikunci.");
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function onUnlock(e: React.FormEvent) {
+    e.preventDefault();
+    if (!unlockReason.trim()) { setError("Alasan buka kunci wajib diisi."); return; }
+    setError(""); setSuccess("");
+    setSaving(true);
+    try {
+      const s = await api().gradingSchemes.unlock(id, { reason: unlockReason.trim() });
+      setScheme(s);
+      setShowUnlock(false);
+      setUnlockReason("");
+      setSuccess("Kunci darurat dibuka — skema dapat diubah kembali.");
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (authLoading || loading) return <Spinner />;
 
   return (
     <>
       <PageHeader
         title="Kelola Bobot Skema"
-        subtitle={scheme ? `Status: ${scheme.status}` : undefined}
+        subtitle={scheme ? `Status: ${scheme.status}${isLocked ? " (Terkunci)" : ""}` : undefined}
         actions={
-          editable ? (
+          !scheme ? undefined : isLocked ? (
+            <Button variant="warn" onClick={() => setShowUnlock(true)} disabled={saving}>🔓 Buka Kunci Darurat</Button>
+          ) : scheme.status === "DRAFT" ? (
             <Button variant="success" onClick={() => void onPublish()} disabled={saving}>Publish</Button>
-          ) : scheme?.status === "PUBLISHED" ? (
-            <Button variant="secondary" onClick={() => void onUnpublish()} disabled={saving}>Batalkan Publish</Button>
+          ) : isPublished ? (
+            <div className="btn-row" style={{ marginTop: 0 }}>
+              <Button variant="secondary" onClick={() => void onUnpublish()} disabled={saving}>Batalkan Publish</Button>
+              <Button variant="danger" onClick={() => void onLock()} disabled={saving}>🔒 Kunci Skema</Button>
+            </div>
           ) : undefined
         }
       />
@@ -137,10 +180,17 @@ export default function SkemaDetailPage({ params }: { params: Promise<{ id: stri
       ) : (
         <Card
           title="Bobot kategori"
-          actions={scheme.status === "PUBLISHED" ? <span className="small muted">Dipublish {formatDateTime(scheme.publishedAt)}</span> : <Badge status={scheme.status} />}
+          actions={
+            isLocked ? <Badge status="LOCKED" /> :
+            isPublished ? <span className="small muted">Dipublish {formatDateTime(scheme.publishedAt)}</span> :
+            <Badge status={scheme.status} />
+          }
         >
-          {!editable && (
-            <Alert kind="info">Skema berstatus Terbit sehingga bobot dikunci. Untuk mengubah, batalkan dulu publish-nya via tombol di atas — hanya bisa bila belum ada nilai yang diinput pada semester ini.</Alert>
+          {isLocked && (
+            <Alert kind="info">🔒 Skema dikunci{formatDateTime(scheme.lockedAt) ? ` pada ${formatDateTime(scheme.lockedAt)}` : ""}. Bobot tidak dapat diubah. Gunakan "Buka Kunci Darurat" bila terjadi kesalahan — tercatat di audit log.</Alert>
+          )}
+          {!isLocked && isPublished && (
+            <Alert kind="info">Skema sudah dipublish. Bobot masih bisa diubah — perubahan hanya mempengaruhi preview nilai dan rapor yang dibuat setelah ini; rapor yang sudah terbit tidak berubah. Kunci skema di akhir semester bila sudah final.</Alert>
           )}
           <div className="table-wrap">
             <table className="tbl">
@@ -175,6 +225,21 @@ export default function SkemaDetailPage({ params }: { params: Promise<{ id: stri
           </div>
           {editable && <p className="small muted mt">Total bobot harus tepat 100% agar bisa di-publish.</p>}
         </Card>
+      )}
+
+      {showUnlock && (
+        <Modal title="🔓 Buka Kunci Darurat" onClose={() => setShowUnlock(false)}>
+          <form onSubmit={onUnlock}>
+            <Alert kind="info">Buka kunci hanya untuk keadaan darurat (mis. salah kunci atau bobot keliru). Alasan wajib diisi dan tercatat di audit log.</Alert>
+            <Field label="Alasan buka kunci">
+              <textarea value={unlockReason} onChange={(e) => setUnlockReason(e.target.value)} placeholder="Cth: salah input bobot SAS, seharusnya 40%" />
+            </Field>
+            <div className="btn-row">
+              <Button type="submit" variant="warn" disabled={saving}>{saving ? "Memproses..." : "Buka Kunci"}</Button>
+              <Button type="button" variant="secondary" onClick={() => setShowUnlock(false)}>Batal</Button>
+            </div>
+          </form>
+        </Modal>
       )}
     </>
   );

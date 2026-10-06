@@ -333,6 +333,8 @@ export interface GradingScheme {
   semesterId: string;
   status: GradingSchemeStatus;
   publishedAt: string | null;
+  isLocked: boolean;
+  lockedAt: string | null;
   weights: GradingSchemeWeight[];
 }
 export interface ReplaceWeightsInput {

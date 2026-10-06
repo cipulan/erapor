@@ -12,7 +12,7 @@ import {
   validateWeightsTotal,
   type AchievementStatus,
 } from "./grading-engine";
-import { CreateGradingSchemeDto, ReplaceWeightsDto, UpsertKktpDto } from "./dto/grading.dto";
+import { CreateGradingSchemeDto, ReplaceWeightsDto, UnlockGradingSchemeDto, UpsertKktpDto } from "./dto/grading.dto";
 
 @Injectable()
 export class GradingService {
@@ -76,12 +76,24 @@ export class GradingService {
   }
 
   /** Replaces all weights. Draft schemes only (BR-005). */
+  /**
+   * Ganti bobot kategori. Diizinkan untuk skema DRAFT dan PUBLISHED yang
+   * belum dikunci — skema hanya mempengaruhi hasil hitungan nilai akhir
+   * (preview + generate rapor), bukan nilai input yang sudah tersimpan.
+   * Setiap perubahan tercatat di audit beserta bobot sebelum/sesudah.
+   */
   async replaceWeights(user: SessionUser, schemeId: string, dto: ReplaceWeightsDto, req: Request) {
     const scheme = await this.policy.gradingSchemeInSchool(user.schoolId, schemeId);
-    if (scheme.status !== "DRAFT") {
+    if (scheme.isLocked) {
       throw Errors.conflict(
         ApiErrorCode.GRADING_SCHEME_PUBLISHED,
-        "Skema yang sudah dipublish tidak dapat diubah. Buat skema baru bila perlu.",
+        "Skema sudah dikunci dan tidak dapat diubah. Gunakan buka kunci darurat bila perlu.",
+      );
+    }
+    if (scheme.status !== "DRAFT" && scheme.status !== "PUBLISHED") {
+      throw Errors.conflict(
+        ApiErrorCode.GRADING_SCHEME_PUBLISHED,
+        "Bobot hanya dapat diubah pada skema berstatus draf atau terbit.",
       );
     }
 
@@ -124,6 +136,12 @@ export class GradingService {
       action: AuditAction.GRADING_SCHEME_WEIGHTS_UPDATE,
       entityType: "GradingScheme",
       entityId: scheme.id,
+      beforeJson: {
+        weights: scheme.weights.map((w) => ({
+          categoryId: w.categoryId,
+          weight: w.weight.toString(),
+        })),
+      },
       afterJson: { weights: dto.weights },
     });
     return toSchemeJson(updated);
@@ -185,6 +203,12 @@ export class GradingService {
         "Hanya skema berstatus Terbit yang dapat dibatalkan publish-nya.",
       );
     }
+    if (scheme.isLocked) {
+      throw Errors.conflict(
+        ApiErrorCode.GRADING_SCHEME_PUBLISHED,
+        "Skema sudah dikunci dan tidak dapat dibatalkan publish-nya. Gunakan buka kunci darurat bila perlu.",
+      );
+    }
     const scoreCount = await this.prisma.assessmentScore.count({
       where: { assessment: { semesterId: scheme.semesterId } },
     });
@@ -208,6 +232,70 @@ export class GradingService {
       entityId: scheme.id,
       beforeJson: { status: "PUBLISHED" },
       afterJson: { status: "DRAFT" },
+    });
+    return toSchemeJson(updated);
+  }
+
+  /**
+   * Kunci skema: PUBLISHED -> terkunci. Setelah dikunci, bobot tidak dapat
+   * diubah lagi (dijaga trigger database) sampai dibuka kuncinya.
+   * Biasanya dilakukan admin di akhir semester setelah ujian akhir.
+   */
+  async lockScheme(user: SessionUser, schemeId: string, req: Request) {
+    const scheme = await this.policy.gradingSchemeInSchool(user.schoolId, schemeId);
+    if (scheme.status !== "PUBLISHED") {
+      throw Errors.conflict(
+        ApiErrorCode.GRADING_SCHEME_PUBLISHED,
+        "Hanya skema berstatus Terbit yang dapat dikunci.",
+      );
+    }
+    if (scheme.isLocked) {
+      return toSchemeJson(scheme);
+    }
+    const updated = await this.prisma.gradingScheme.update({
+      where: { id: scheme.id },
+      data: { isLocked: true, lockedAt: new Date() },
+      include: { weights: { include: { category: true } } },
+    });
+    await this.audit.log({
+      req,
+      schoolId: user.schoolId,
+      actorUserId: user.id,
+      action: AuditAction.GRADING_SCHEME_LOCK,
+      entityType: "GradingScheme",
+      entityId: scheme.id,
+      beforeJson: { isLocked: false },
+      afterJson: { isLocked: true, lockedAt: updated.lockedAt?.toISOString() ?? null },
+    });
+    return toSchemeJson(updated);
+  }
+
+  /**
+   * Buka kunci darurat: untuk mengoreksi skema yang terkunci karena
+   * kesalahan. Khusus SUPERADMIN, wajib menyertakan alasan, tercatat di audit.
+   */
+  async unlockScheme(user: SessionUser, schemeId: string, dto: UnlockGradingSchemeDto, req: Request) {
+    const scheme = await this.policy.gradingSchemeInSchool(user.schoolId, schemeId);
+    if (!scheme.isLocked) {
+      throw Errors.conflict(
+        ApiErrorCode.GRADING_SCHEME_PUBLISHED,
+        "Skema ini tidak dalam keadaan terkunci.",
+      );
+    }
+    const updated = await this.prisma.gradingScheme.update({
+      where: { id: scheme.id },
+      data: { isLocked: false, lockedAt: null },
+      include: { weights: { include: { category: true } } },
+    });
+    await this.audit.log({
+      req,
+      schoolId: user.schoolId,
+      actorUserId: user.id,
+      action: AuditAction.GRADING_SCHEME_UNLOCK,
+      entityType: "GradingScheme",
+      entityId: scheme.id,
+      beforeJson: { isLocked: true, lockedAt: scheme.lockedAt?.toISOString() ?? null },
+      afterJson: { isLocked: false, reason: dto.reason.trim() },
     });
     return toSchemeJson(updated);
   }
@@ -421,6 +509,8 @@ export function toSchemeJson(s: {
   semesterId: string;
   status: string;
   publishedAt: Date | null;
+  isLocked: boolean;
+  lockedAt: Date | null;
   weights: Array<{ id: string; categoryId: string; weight: unknown }>;
 }) {
   return {
@@ -429,6 +519,8 @@ export function toSchemeJson(s: {
     semesterId: s.semesterId,
     status: s.status,
     publishedAt: s.publishedAt ? s.publishedAt.toISOString() : null,
+    isLocked: s.isLocked,
+    lockedAt: s.lockedAt ? s.lockedAt.toISOString() : null,
     weights: s.weights.map((w) => ({
       id: w.id,
       categoryId: w.categoryId,

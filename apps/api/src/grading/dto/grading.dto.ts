@@ -6,7 +6,9 @@ import {
   IsString,
   IsUUID,
   Max,
+  MaxLength,
   Min,
+  MinLength,
   ValidateNested,
 } from "class-validator";
 import { Type } from "class-transformer";
@@ -36,6 +38,13 @@ export class ReplaceWeightsDto {
   @ValidateNested({ each: true })
   @Type(() => WeightItemDto)
   weights!: WeightItemDto[];
+}
+
+export class UnlockGradingSchemeDto {
+  @IsString()
+  @MinLength(1, { message: "Alasan buka kunci wajib diisi." })
+  @MaxLength(500, { message: "Alasan maksimal 500 karakter." })
+  reason!: string;
 }
 
 export class UpsertKktpDto {

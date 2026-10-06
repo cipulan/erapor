@@ -458,6 +458,11 @@ export default function RaporDetailPage({ params }: { params: Promise<{ id: stri
                   Unduh PDF
                 </a>
               )}
+              {(status === "DRAFT" || status === "REVIEW" || status === "REVISION") && (
+                <a className="btn secondary" href={api().reports.pdfUrl(id)} target="_blank" rel="noopener">
+                  👁️ Preview PDF
+                </a>
+              )}
             </div>
             {!isSuper && user?.role === "TEACHER" && (
               <p className="small muted mt">Tombol Terbitkan hanya tersedia untuk superadmin.</p>

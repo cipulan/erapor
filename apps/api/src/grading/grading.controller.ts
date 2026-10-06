@@ -4,7 +4,7 @@ import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { Roles } from "../common/decorators/roles.decorator";
 import type { SessionUser } from "../auth/types/session-user";
 import { GradingService } from "./grading.service";
-import { CreateGradingSchemeDto, ReplaceWeightsDto, UpsertKktpDto } from "./dto/grading.dto";
+import { CreateGradingSchemeDto, ReplaceWeightsDto, UnlockGradingSchemeDto, UpsertKktpDto } from "./dto/grading.dto";
 
 @Controller()
 export class GradingController {
@@ -45,6 +45,25 @@ export class GradingController {
   @Roles("SUPERADMIN")
   async unpublishScheme(@CurrentUser() user: SessionUser, @Param("id") id: string, @Req() req: Request) {
     return this.service.unpublishScheme(user, id, req);
+  }
+
+  @Post("grading-schemes/:id/lock")
+  @HttpCode(200)
+  @Roles("SUPERADMIN")
+  async lockScheme(@CurrentUser() user: SessionUser, @Param("id") id: string, @Req() req: Request) {
+    return this.service.lockScheme(user, id, req);
+  }
+
+  @Post("grading-schemes/:id/unlock")
+  @HttpCode(200)
+  @Roles("SUPERADMIN")
+  async unlockScheme(
+    @CurrentUser() user: SessionUser,
+    @Param("id") id: string,
+    @Body() dto: UnlockGradingSchemeDto,
+    @Req() req: Request,
+  ) {
+    return this.service.unlockScheme(user, id, dto, req);
   }
 
   @Get("kktp-configurations")

@@ -506,6 +506,26 @@ paths:
       responses:
         '200': { description: Published, content: { application/json: { schema: { $ref: '#/components/schemas/GradingScheme' } } } }
         '409': { $ref: '#/components/responses/Conflict' }
+  /grading-schemes/{gradingSchemeId}/lock:
+    post:
+      tags: [Grading]
+      operationId: lockGradingScheme
+      parameters: [{ $ref: '#/components/parameters/GradingSchemeId' }]
+      responses:
+        '200': { description: Locked, content: { application/json: { schema: { $ref: '#/components/schemas/GradingScheme' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /grading-schemes/{gradingSchemeId}/unlock:
+    post:
+      tags: [Grading]
+      operationId: unlockGradingScheme
+      parameters: [{ $ref: '#/components/parameters/GradingSchemeId' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/UnlockGradingSchemeRequest' } } }
+      responses:
+        '200': { description: Unlocked, content: { application/json: { schema: { $ref: '#/components/schemas/GradingScheme' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
 
   /assessments:
     get:
@@ -1231,7 +1251,14 @@ components:
         semesterId: { $ref: '#/components/schemas/UUID' }
         status: { $ref: '#/components/schemas/GradingSchemeStatus' }
         publishedAt: { allOf: [{ $ref: '#/components/schemas/DateTime' }], nullable: true }
+        isLocked: { type: boolean }
+        lockedAt: { allOf: [{ $ref: '#/components/schemas/DateTime' }], nullable: true }
         weights: { type: array, items: { $ref: '#/components/schemas/GradingSchemeWeight' } }
+    UnlockGradingSchemeRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string, maxLength: 500 }
     CreateGradingSchemeRequest:
       type: object
       required: [academicYearId, semesterId]

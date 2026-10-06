@@ -305,6 +305,9 @@ export function createApiClient(options: ClientOptions) {
         put<GradingScheme>(`/grading-schemes/${id}/weights`, data),
       publish: (id: string) => post<GradingScheme>(`/grading-schemes/${id}/publish`),
       unpublish: (id: string) => post<GradingScheme>(`/grading-schemes/${id}/unpublish`),
+      lock: (id: string) => post<GradingScheme>(`/grading-schemes/${id}/lock`),
+      unlock: (id: string, data: { reason: string }) =>
+        post<GradingScheme>(`/grading-schemes/${id}/unlock`, data),
     },
     kktp: {
       list: (params?: { academicYearId?: string; semesterId?: string; subjectId?: string }) =>
