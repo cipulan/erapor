@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
  */
 const COOKIE_NAME = process.env.SESSION_COOKIE_NAME ?? "school_report_session";
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const hasSession = req.cookies.has(COOKIE_NAME);
 
