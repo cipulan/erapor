@@ -15,6 +15,22 @@ jobs:
   check:
     name: Validate
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: erapor
+          POSTGRES_PASSWORD: erapor
+          POSTGRES_DB: erapor
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://erapor:erapor@localhost:5432/erapor
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,9 +42,14 @@ jobs:
 
       - name: Typecheck API
         run: |
-          npm ci --no-audit --no-fund --workspace=@erapor/database --workspace=@erapor/api --include-workspace-root
+          npm ci --no-audit --no-fund --workspace=@erapor/database --workspace=@erapor/api --workspace=@erapor/api-client --workspace=@erapor/web --include-workspace-root
           npm run db:generate
+          npm run build --workspace=@erapor/database
+          npm run build --workspace=@erapor/api-client
           npx tsc --noEmit -p apps/api/tsconfig.json
+
+      - name: Migrate test database
+        run: npm run db:migrate
 
       - name: API unit tests
         run: npm run test --workspace=@erapor/api
