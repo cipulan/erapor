@@ -14,11 +14,11 @@ export default function KktpPage() {
   const [years, setYears] = useState<AcademicYear[]>([]);
   const [semesters, setSemesters] = useState<Semester[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [filters, setFilters] = useState({ academicYearId: "", semesterId: "", subjectId: "" });
+  const [filters, setFilters] = useState({ academicYearId: "", semesterId: "", subjectId: "", gradeLevel: "" });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ academicYearId: "", semesterId: "", subjectId: "", threshold: "75", description: "" });
+  const [form, setForm] = useState({ academicYearId: "", semesterId: "", subjectId: "", gradeLevel: "", threshold: "75", description: "" });
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async (f: typeof filters) => {
@@ -29,6 +29,7 @@ export default function KktpPage() {
         academicYearId: f.academicYearId || undefined,
         semesterId: f.semesterId || undefined,
         subjectId: f.subjectId || undefined,
+        gradeLevel: f.gradeLevel || undefined,
       }));
     } catch (err) {
       setError(errorMessage(err));
@@ -49,9 +50,9 @@ export default function KktpPage() {
         if (yid) {
           setSemesters(await c.semesters.list(yid));
           setFilters((f) => ({ ...f, academicYearId: yid }));
-          await load({ academicYearId: yid, semesterId: "", subjectId: "" });
+          await load({ academicYearId: yid, semesterId: "", subjectId: "", gradeLevel: "" });
         } else {
-          await load({ academicYearId: "", semesterId: "", subjectId: "" });
+          await load({ academicYearId: "", semesterId: "", subjectId: "", gradeLevel: "" });
         }
       } catch (err) {
         setError(errorMessage(err));
@@ -70,7 +71,9 @@ export default function KktpPage() {
   async function onSave(e: React.FormEvent) {
     e.preventDefault();
     const threshold = parseFloat(form.threshold);
+    const gradeLevel = parseInt(form.gradeLevel, 10);
     if (!form.academicYearId || !form.semesterId || !form.subjectId) { setError("Tahun ajaran, semester, dan mapel wajib dipilih."); return; }
+    if (!Number.isInteger(gradeLevel) || gradeLevel < 1 || gradeLevel > 6) { setError("Tingkat wajib dipilih (1–6)."); return; }
     if (Number.isNaN(threshold) || threshold < 0 || threshold > 100) { setError("Threshold harus angka 0–100."); return; }
     setSaving(true);
     setError("");
@@ -79,11 +82,12 @@ export default function KktpPage() {
         academicYearId: form.academicYearId,
         semesterId: form.semesterId,
         subjectId: form.subjectId,
+        gradeLevel,
         threshold,
         description: form.description.trim() || undefined,
       });
       setShowForm(false);
-      setForm({ academicYearId: "", semesterId: "", subjectId: "", threshold: "75", description: "" });
+      setForm({ academicYearId: "", semesterId: "", subjectId: "", gradeLevel: "", threshold: "75", description: "" });
       await load(filters);
     } catch (err) {
       setError(errorMessage(err));
@@ -98,7 +102,7 @@ export default function KktpPage() {
 
   return (
     <>
-      <PageHeader title="KKTP" subtitle="Kriteria Ketercapaian Tujuan Pembelajaran per mapel" actions={<Button onClick={() => setShowForm(true)}>+ Atur KKTP</Button>} />
+      <PageHeader title="KKTP" subtitle="Kriteria Ketercapaian Tujuan Pembelajaran per mapel per tingkat" actions={<Button onClick={() => setShowForm(true)}>+ Atur KKTP</Button>} />
       <Alert kind="error">{error}</Alert>
       <Card>
         <div className="toolbar">
@@ -114,19 +118,26 @@ export default function KktpPage() {
               {semesters.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </Field>
+          <Field label="Tingkat">
+            <select value={filters.gradeLevel} onChange={(e) => { const f = { ...filters, gradeLevel: e.target.value }; setFilters(f); void load(f); }}>
+              <option value="">Semua</option>
+              {[1, 2, 3, 4, 5, 6].map((g) => <option key={g} value={String(g)}>Kelas {g}</option>)}
+            </select>
+          </Field>
         </div>
         {loading ? <Spinner /> : rows.length === 0 ? <EmptyState /> : (
           <ResponsiveTable<KktpConfiguration>
             columns={[
               { key: "subject", label: "Mapel", render: (k) => nameOf(subjects, k.subjectId) },
               { key: "semester", label: "Semester", render: (k) => nameOf(semesters, k.semesterId) },
+              { key: "gradeLevel", label: "Tingkat", render: (k) => `Kelas ${k.gradeLevel}` },
               { key: "threshold", label: "Threshold", render: (k) => <strong>{k.threshold}</strong> },
               { key: "description", label: "Keterangan", render: (k) => k.description ?? "-" },
             ]}
             rows={rows}
             rowKey={(k) => k.id}
             title={(k) => nameOf(subjects, k.subjectId)}
-            subtitle={(k) => `${nameOf(semesters, k.semesterId)} · KKTP ${k.threshold}`}
+            subtitle={(k) => `${nameOf(semesters, k.semesterId)} · Kelas ${k.gradeLevel} · KKTP ${k.threshold}`}
           />
         )}
       </Card>
@@ -159,6 +170,14 @@ export default function KktpPage() {
                   {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </Field>
+              <Field label="Tingkat">
+                <select value={form.gradeLevel} onChange={(e) => setForm({ ...form, gradeLevel: e.target.value })}>
+                  <option value="">— Pilih —</option>
+                  {[1, 2, 3, 4, 5, 6].map((g) => <option key={g} value={String(g)}>Kelas {g}</option>)}
+                </select>
+              </Field>
+            </div>
+            <div className="form-row">
               <Field label="Threshold (0–100)">
                 <input type="number" min={0} max={100} step="0.01" value={form.threshold} onChange={(e) => setForm({ ...form, threshold: e.target.value })} />
               </Field>

@@ -310,7 +310,7 @@ export function createApiClient(options: ClientOptions) {
         post<GradingScheme>(`/grading-schemes/${id}/unlock`, data),
     },
     kktp: {
-      list: (params?: { academicYearId?: string; semesterId?: string; subjectId?: string }) =>
+      list: (params?: { academicYearId?: string; semesterId?: string; subjectId?: string; gradeLevel?: string }) =>
         get<KktpConfiguration[]>(`/kktp-configurations${buildQuery(params)}`),
       upsert: (data: UpsertKktpInput) => post<KktpConfiguration>("/kktp-configurations", data),
     },

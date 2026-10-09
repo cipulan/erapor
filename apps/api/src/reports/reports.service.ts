@@ -509,6 +509,7 @@ export class ReportsService {
 
     const enrollment = await this.prisma.studentEnrollment.findFirst({
       where: { studentId: student.id, academicYearId: year.id, status: "ACTIVE" },
+      include: { class: { select: { gradeLevel: true } } },
     });
     if (!enrollment) {
       throw Errors.validation(ApiErrorCode.REPORT_NOT_READY, "Siswa belum terdaftar aktif di tahun ajaran ini.");
@@ -584,7 +585,12 @@ export class ReportsService {
       }
 
       const kktp = await this.prisma.kktpConfiguration.findFirst({
-        where: { academicYearId: year.id, semesterId: semester.id, subjectId: subject.id },
+        where: {
+          academicYearId: year.id,
+          semesterId: semester.id,
+          subjectId: subject.id,
+          gradeLevel: enrollment.class.gradeLevel,
+        },
       });
 
       const result = calculateGrade({

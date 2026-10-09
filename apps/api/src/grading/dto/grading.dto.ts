@@ -1,6 +1,7 @@
 import {
   ArrayMinSize,
   IsArray,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
@@ -56,6 +57,12 @@ export class UpsertKktpDto {
 
   @IsUUID("4", { message: "subjectId tidak valid." })
   subjectId!: string;
+
+  @IsInt({ message: "Tingkat harus bilangan bulat." })
+  @Min(1, { message: "Tingkat minimal 1." })
+  @Max(6, { message: "Tingkat maksimal 6." })
+  @Type(() => Number)
+  gradeLevel!: number;
 
   @IsNumber({ maxDecimalPlaces: 2 }, { message: "Threshold harus angka maksimal 2 desimal." })
   @Min(0, { message: "Threshold minimal 0." })

@@ -515,6 +515,7 @@ model KktpConfiguration {
   academicYearId String   @db.Uuid @map("academic_year_id")
   semesterId     String   @db.Uuid @map("semester_id")
   subjectId      String   @db.Uuid @map("subject_id")
+  gradeLevel     Int      @map("grade_level")
   threshold      Decimal  @db.Decimal(5, 2)
   description    String?
   createdAt      DateTime @default(now()) @map("created_at")
@@ -524,7 +525,7 @@ model KktpConfiguration {
   semester     Semester     @relation(fields: [semesterId, academicYearId], references: [id, academicYearId], onDelete: Restrict)
   subject      Subject      @relation(fields: [subjectId], references: [id], onDelete: Restrict)
 
-  @@unique([academicYearId, semesterId, subjectId])
+  @@unique([academicYearId, semesterId, subjectId, gradeLevel])
   @@index([subjectId, semesterId])
   @@map("kktp_configurations")
 }

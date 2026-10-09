@@ -262,16 +262,18 @@ async function main() {
 
   await prisma.kktpConfiguration.upsert({
     where: {
-      academicYearId_semesterId_subjectId: {
+      academicYearId_semesterId_subjectId_gradeLevel: {
         academicYearId: year.id,
         semesterId: semester.id,
         subjectId: subject.id,
+        gradeLevel: 4,
       },
     },
     create: {
       academicYearId: year.id,
       semesterId: semester.id,
       subjectId: subject.id,
+      gradeLevel: 4,
       threshold: 75,
     },
     update: { threshold: 75 },

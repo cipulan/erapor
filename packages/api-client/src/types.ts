@@ -346,6 +346,7 @@ export interface KktpConfiguration {
   academicYearId: string;
   semesterId: string;
   subjectId: string;
+  gradeLevel: number;
   threshold: number;
   description: string | null;
 }
@@ -353,6 +354,7 @@ export interface UpsertKktpInput {
   academicYearId: string;
   semesterId: string;
   subjectId: string;
+  gradeLevel: number;
   threshold: number;
   description?: string;
 }

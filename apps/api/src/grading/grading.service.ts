@@ -320,6 +320,10 @@ export class GradingService {
       await this.policy.subjectInSchool(user.schoolId, filters.subjectId);
       where.subjectId = filters.subjectId;
     }
+    if (filters.gradeLevel) {
+      const g = parseInt(filters.gradeLevel, 10);
+      if (Number.isInteger(g) && g >= 1 && g <= 6) where.gradeLevel = g;
+    }
     const data = await this.prisma.kktpConfiguration.findMany({
       where,
       orderBy: [{ updatedAt: "desc" }],
@@ -337,16 +341,18 @@ export class GradingService {
 
     const kktp = await this.prisma.kktpConfiguration.upsert({
       where: {
-        academicYearId_semesterId_subjectId: {
+        academicYearId_semesterId_subjectId_gradeLevel: {
           academicYearId: year.id,
           semesterId: semester.id,
           subjectId: dto.subjectId,
+          gradeLevel: dto.gradeLevel,
         },
       },
       create: {
         academicYearId: year.id,
         semesterId: semester.id,
         subjectId: dto.subjectId,
+        gradeLevel: dto.gradeLevel,
         threshold: new Decimal(dto.threshold),
         description: dto.description?.trim() || null,
       },
@@ -412,6 +418,7 @@ export class GradingService {
 
     const enrollment = await this.prisma.studentEnrollment.findFirst({
       where: { studentId: student.id, academicYearId: year.id, status: "ACTIVE" },
+      include: { class: { select: { gradeLevel: true } } },
     });
     if (!enrollment) {
       throw Errors.validation(
@@ -463,7 +470,12 @@ export class GradingService {
     for (const s of scores) scoreMap[s.assessmentId] = s.score.toString();
 
     const kktp = await this.prisma.kktpConfiguration.findFirst({
-      where: { academicYearId: year.id, semesterId: semester.id, subjectId: subject.id },
+      where: {
+        academicYearId: year.id,
+        semesterId: semester.id,
+        subjectId: subject.id,
+        gradeLevel: enrollment.class.gradeLevel,
+      },
       select: { threshold: true },
     });
 
@@ -534,6 +546,7 @@ export function toKktpJson(k: {
   academicYearId: string;
   semesterId: string;
   subjectId: string;
+  gradeLevel: number;
   threshold: unknown;
   description: string | null;
 }) {
@@ -542,6 +555,7 @@ export function toKktpJson(k: {
     academicYearId: k.academicYearId,
     semesterId: k.semesterId,
     subjectId: k.subjectId,
+    gradeLevel: k.gradeLevel,
     threshold: Number(new Decimal(k.threshold as Decimal.Value).toString()),
     description: k.description,
   };
