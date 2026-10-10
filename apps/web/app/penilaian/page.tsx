@@ -111,6 +111,18 @@ export default function PenilaianPage() {
     }
   }
 
+  /** Pilih penugasan -> semester/kelas/mapel otomatis terisi (backend mewajibkan sama persis). */
+  function onAssignmentChange(id: string) {
+    const a = assignments.find((x) => x.id === id);
+    setForm((f) => ({
+      ...f,
+      teacherAssignmentId: id,
+      semesterId: a?.semesterId ?? "",
+      classId: a?.classId ?? "",
+      subjectId: a?.subjectId ?? "",
+    }));
+  }
+
   async function onCreate(e: React.FormEvent) {
     e.preventDefault();
     const maxScore = parseFloat(form.maxScore);
@@ -212,8 +224,8 @@ export default function PenilaianPage() {
       {showForm && (
         <Modal title="Buat Assessment" onClose={() => setShowForm(false)}>
           <form onSubmit={onCreate}>
-            <Field label="Penugasan guru" hint="Assessment dibuat dalam lingkup penugasan guru.">
-              <select value={form.teacherAssignmentId} onChange={(e) => setForm({ ...form, teacherAssignmentId: e.target.value })}>
+            <Field label="Penugasan guru" hint="Semester, kelas, dan mapel otomatis mengikuti penugasan yang dipilih.">
+              <select value={form.teacherAssignmentId} onChange={(e) => onAssignmentChange(e.target.value)}>
                 <option value="">— Pilih —</option>
                 {assignments.map((a) => (
                   <option key={a.id} value={a.id}>
@@ -222,34 +234,50 @@ export default function PenilaianPage() {
                 ))}
               </select>
             </Field>
-            <div className="form-row">
-              <Field label="Semester">
-                <select value={form.semesterId} onChange={(e) => setForm({ ...form, semesterId: e.target.value })}>
-                  <option value="">— Pilih —</option>
-                  {semesters.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-              </Field>
-              <Field label="Kelas">
-                <select value={form.classId} onChange={(e) => setForm({ ...form, classId: e.target.value })}>
-                  <option value="">— Pilih —</option>
-                  {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </Field>
-            </div>
-            <div className="form-row">
-              <Field label="Mapel">
-                <select value={form.subjectId} onChange={(e) => setForm({ ...form, subjectId: e.target.value })}>
-                  <option value="">— Pilih —</option>
-                  {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-              </Field>
-              <Field label="Kategori">
-                <select value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>
-                  <option value="">— Pilih —</option>
-                  {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </Field>
-            </div>
+            {form.teacherAssignmentId ? (
+              <>
+                <p className="muted small" style={{ margin: "-4px 0 12px" }}>
+                  {semesters.find((s) => s.id === form.semesterId)?.name ?? "—"} · {nameOf(classes, form.classId)} · {nameOf(subjects, form.subjectId)}
+                </p>
+                <Field label="Kategori">
+                  <select value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>
+                    <option value="">— Pilih —</option>
+                    {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </Field>
+              </>
+            ) : (
+              <>
+                <div className="form-row">
+                  <Field label="Semester">
+                    <select value={form.semesterId} onChange={(e) => setForm({ ...form, semesterId: e.target.value })}>
+                      <option value="">— Pilih —</option>
+                      {semesters.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Kelas">
+                    <select value={form.classId} onChange={(e) => setForm({ ...form, classId: e.target.value })}>
+                      <option value="">— Pilih —</option>
+                      {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </Field>
+                </div>
+                <div className="form-row">
+                  <Field label="Mapel">
+                    <select value={form.subjectId} onChange={(e) => setForm({ ...form, subjectId: e.target.value })}>
+                      <option value="">— Pilih —</option>
+                      {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Kategori">
+                    <select value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>
+                      <option value="">— Pilih —</option>
+                      {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </Field>
+                </div>
+              </>
+            )}
             <Field label="Judul"><input type="text" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Ulangan Harian 1" /></Field>
             <div className="form-row">
               <Field label="Skor maksimal"><input type="number" min={0.01} step="0.01" value={form.maxScore} onChange={(e) => setForm({ ...form, maxScore: e.target.value })} /></Field>
