@@ -278,4 +278,49 @@ describe("database constraints", () => {
       expect(pgCode(err)).toBe("23514");
     });
   });
+
+  it("DB-008 weights of a PUBLISHED-but-unlocked scheme can be replaced", async () => {
+    // Regression: migration 20261006 forgot to drop the init trigger that
+    // blocked ANY weight change on published schemes, so the flexible-weights
+    // feature (PUT /grading-schemes/:id/weights) always 500'd.
+    await rolledBack(async (tx) => {
+      await tx.query(`UPDATE grading_schemes SET status = 'PUBLISHED' WHERE id = $1`, [ids.scheme]);
+      await tx.query(
+        `INSERT INTO grading_scheme_weights (grading_scheme_id, category_id, weight, updated_at)
+         VALUES ($1, $2, 100, now())`,
+        [ids.scheme, ids.category],
+      );
+      // replaceWeights deletes then re-inserts — both must succeed
+      await tx.query(`DELETE FROM grading_scheme_weights WHERE grading_scheme_id = $1`, [ids.scheme]);
+      await tx.query(
+        `INSERT INTO grading_scheme_weights (grading_scheme_id, category_id, weight, updated_at)
+         VALUES ($1, $2, 50, now())`,
+        [ids.scheme, ids.category],
+      );
+      const r = await tx.query(
+        `SELECT COUNT(*)::int AS n, SUM(weight)::int AS total FROM grading_scheme_weights WHERE grading_scheme_id = $1`,
+        [ids.scheme],
+      );
+      expect(r.rows[0].n).toBe(1);
+      expect(r.rows[0].total).toBe(50);
+    });
+  });
+
+  it("DB-009 weights of a LOCKED scheme cannot be changed", async () => {
+    await rolledBack(async (tx) => {
+      await tx.query(
+        `UPDATE grading_schemes SET status = 'PUBLISHED', is_locked = TRUE, locked_at = now() WHERE id = $1`,
+        [ids.scheme],
+      );
+      const err = await tx
+        .query(
+          `INSERT INTO grading_scheme_weights (grading_scheme_id, category_id, weight, updated_at)
+           VALUES ($1, $2, 100, now())`,
+          [ids.scheme, ids.category],
+        )
+        .then(() => null)
+        .catch((e: unknown) => e);
+      expect(pgCode(err)).toBe("P0001");
+    });
+  });
 });
