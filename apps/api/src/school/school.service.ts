@@ -15,6 +15,7 @@ export interface SchoolJson {
   email: string | null;
   headmasterName: string | null;
   headmasterNip: string | null;
+  city: string | null;
 }
 
 function toSchoolJson(s: {
@@ -27,6 +28,7 @@ function toSchoolJson(s: {
   email: string | null;
   headmasterName: string | null;
   headmasterNip: string | null;
+  city: string | null;
 }): SchoolJson {
   return {
     id: s.id,
@@ -38,6 +40,7 @@ function toSchoolJson(s: {
     email: s.email,
     headmasterName: s.headmasterName,
     headmasterNip: s.headmasterNip,
+    city: s.city,
   };
 }
 
@@ -66,6 +69,7 @@ export class SchoolService {
       data: {
         name: dto.name.trim(),
         address: clean(dto.address),
+        city: clean(dto.city),
         phone: clean(dto.phone),
         email: clean(dto.email),
         headmasterName: clean(dto.headmasterName),

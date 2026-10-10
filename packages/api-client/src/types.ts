@@ -8,6 +8,7 @@ export interface UserSummary {
   id: string;
   email: string;
   fullName: string;
+  nbm?: string | null;
   role: UserRole;
   isActive: boolean;
 }
@@ -22,6 +23,7 @@ export interface UserProfile {
   id: string;
   email: string;
   fullName: string;
+  nbm?: string | null;
   role: UserRole;
   isActive: boolean;
   schoolName: string;
@@ -41,11 +43,13 @@ export interface SchoolProfile {
   email: string | null;
   headmasterName: string | null;
   headmasterNip: string | null;
+  city: string | null;
 }
 
 export interface UpdateSchoolInput {
   name: string;
   address?: string;
+  city?: string;
   phone?: string;
   email?: string;
   headmasterName?: string;
@@ -86,6 +90,7 @@ export interface DashboardStats {
 
 export interface UpdateProfileInput {
   fullName: string;
+  nbm?: string | null;
 }
 
 export interface ChangePasswordInput {

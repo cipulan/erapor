@@ -5,6 +5,10 @@ export class UpdateProfileDto {
   @IsString({ message: "Nama lengkap harus berupa teks." })
   @MinLength(3, { message: "Nama lengkap minimal 3 karakter." })
   fullName!: string;
+
+  @IsOptional()
+  @IsString({ message: "NBM harus berupa teks." })
+  nbm?: string | null;
 }
 
 /** POST /profile/change-password — ubah password sendiri. */
@@ -64,6 +68,10 @@ export class UpdateUserDto {
   @IsOptional()
   @IsEmail({}, { message: "Format email tidak valid." })
   email?: string;
+
+  @IsOptional()
+  @IsString({ message: "NBM harus berupa teks." })
+  nbm?: string | null;
 }
 
 /** PATCH /users/:id/role — admin promote/demote role akun (termasuk SUPERADMIN). */

@@ -97,27 +97,39 @@ export class ReportsService {
       this.prisma.student.findUniqueOrThrow({ where: { id: report.studentId } }),
       this.prisma.class.findUniqueOrThrow({
         where: { id: report.classId },
-        include: { homeroomTeacher: { select: { fullName: true } } },
+        include: { homeroomTeacher: { select: { fullName: true, nbm: true } } },
       }),
       this.prisma.semester.findUniqueOrThrow({ where: { id: report.semesterId } }),
       this.prisma.academicYear.findUniqueOrThrow({ where: { id: report.academicYearId } }),
     ]);
 
+    const subjectIds = [...new Set(report.subjects.map((s) => s.subjectId))];
+    const subjectRows = subjectIds.length
+      ? await this.prisma.subject.findMany({ where: { id: { in: subjectIds } }, select: { id: true, code: true } })
+      : [];
+    const codeById = new Map(subjectRows.map((s) => [s.id, s.code]));
+    const semNum = /genap/i.test(semester.name) ? 2 : /ganjil|1/.test(semester.name) ? 1 : null;
+
     return {
       schoolName: school.name,
       schoolAddress: school.address,
+      schoolCity: school.city ?? null,
       studentName: student.fullName,
       nis: student.nis,
       nisn: student.nisn,
       className: klass.name,
       gradeLevel: klass.gradeLevel,
       semesterName: semester.name,
+      semesterNumber: semNum,
       academicYearName: year.name,
+      reportDate: null,
       version: report.version,
       status: report.status,
       publishedAt: report.publishedAt ? report.publishedAt.toISOString() : null,
       homeroomTeacherName: klass.homeroomTeacher?.fullName ?? null,
+      homeroomTeacherNbm: klass.homeroomTeacher?.nbm ?? null,
       headmasterName: school.headmasterName ?? null,
+      headmasterNip: school.headmasterNip ?? null,
       cocurricularDescription: report.cocurricularDescription,
       homeroomNotes: report.homeroomNotes,
       sickDays: report.sickDays,
@@ -129,11 +141,9 @@ export class ReportsService {
         description: e.description,
       })),
       subjects: report.subjects.map((s) => ({
+        code: codeById.get(s.subjectId) ?? "",
         subjectName: s.subjectName,
         finalScore: Math.round(Number(new Decimal(s.finalScore.toString()).toString())),
-        kktpThreshold:
-          s.kktpThreshold == null ? null : Number(new Decimal(s.kktpThreshold.toString()).toString()),
-        achievement: s.achievement,
         description: s.description,
       })),
     };

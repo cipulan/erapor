@@ -98,6 +98,7 @@ model School {
   code           String?  @unique
   timezone       String   @default("Asia/Jakarta")
   address        String?
+  city           String?
   phone          String?
   email          String?
   headmasterName String?  @map("headmaster_name")
@@ -123,6 +124,7 @@ model User {
   email        String
   passwordHash String   @map("password_hash")
   fullName     String   @map("full_name")
+  nbm          String?  @map("nbm")
   role         UserRole
   isActive     Boolean  @default(true) @map("is_active")
   lastLoginAt  DateTime? @map("last_login_at")

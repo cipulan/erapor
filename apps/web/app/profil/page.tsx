@@ -20,6 +20,7 @@ export default function ProfilPage() {
   const [loading, setLoading] = useState(true);
 
   const [fullName, setFullName] = useState("");
+  const [nbm, setNbm] = useState("");
   const [savingName, setSavingName] = useState(false);
   const [nameMsg, setNameMsg] = useState<{ kind: "error" | "success"; text: string } | null>(null);
 
@@ -37,6 +38,7 @@ export default function ProfilPage() {
     email: "",
     headmasterName: "",
     headmasterNip: "",
+    city: "",
   });
   const [savingSchool, setSavingSchool] = useState(false);
   const [schoolMsg, setSchoolMsg] = useState<{ kind: "error" | "success"; text: string } | null>(null);
@@ -47,6 +49,7 @@ export default function ProfilPage() {
       const p = await api().profile.get();
       setProfile(p);
       setFullName(p.fullName);
+      setNbm(p.nbm ?? "");
       if (p.role === "SUPERADMIN") {
         try {
           const s = await api().school.get();
@@ -58,6 +61,7 @@ export default function ProfilPage() {
             email: s.email ?? "",
             headmasterName: s.headmasterName ?? "",
             headmasterNip: s.headmasterNip ?? "",
+            city: s.city ?? "",
           });
         } catch {
           setSchool(null);
@@ -81,7 +85,7 @@ export default function ProfilPage() {
     }
     setSavingName(true);
     try {
-      const p = await api().profile.update({ fullName: nama });
+      const p = await api().profile.update({ fullName: nama, nbm: nbm.trim() || null });
       setProfile(p);
       await refresh();
       setNameMsg({ kind: "success", text: "Nama berhasil diperbarui." });
@@ -135,6 +139,7 @@ export default function ProfilPage() {
         email: schoolForm.email,
         headmasterName: schoolForm.headmasterName,
         headmasterNip: schoolForm.headmasterNip,
+        city: schoolForm.city,
       });
       setSchool(s);
       setSchoolMsg({ kind: "success", text: "Data sekolah berhasil diperbarui." });
@@ -169,6 +174,15 @@ export default function ProfilPage() {
             maxLength={100}
           />
         </Field>
+        <Field label="NBM / NIP (opsional, untuk tanda tangan rapor)">
+          <input
+            type="text"
+            value={nbm}
+            onChange={(e) => setNbm(e.target.value)}
+            placeholder="Nomor Baku Muhammadiyah"
+            maxLength={40}
+          />
+        </Field>
         <Alert kind={nameMsg?.kind ?? "error"}>{nameMsg?.text ?? ""}</Alert>
         <Button onClick={() => void saveName()} disabled={savingName}>
           {savingName ? "Menyimpan..." : "Simpan Nama"}
@@ -190,15 +204,26 @@ export default function ProfilPage() {
               maxLength={120}
             />
           </Field>
-          <Field label="Alamat">
-            <input
-              type="text"
-              value={schoolForm.address}
-              onChange={(e) => setSchoolForm({ ...schoolForm, address: e.target.value })}
-              placeholder="Alamat sekolah"
-              maxLength={200}
-            />
-          </Field>
+          <div className="form-row">
+            <Field label="Alamat">
+              <input
+                type="text"
+                value={schoolForm.address}
+                onChange={(e) => setSchoolForm({ ...schoolForm, address: e.target.value })}
+                placeholder="Alamat sekolah"
+                maxLength={200}
+              />
+            </Field>
+            <Field label="Kota (untuk baris tanggal rapor)">
+              <input
+                type="text"
+                value={schoolForm.city}
+                onChange={(e) => setSchoolForm({ ...schoolForm, city: e.target.value })}
+                placeholder="Yogyakarta"
+                maxLength={60}
+              />
+            </Field>
+          </div>
           <div className="form-row">
             <Field label="Telepon">
               <input

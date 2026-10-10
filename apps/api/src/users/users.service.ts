@@ -22,6 +22,7 @@ const profileSelect = {
   id: true,
   email: true,
   fullName: true,
+  nbm: true,
   role: true,
   isActive: true,
   school: { select: { name: true } },
@@ -31,6 +32,7 @@ const userItemSelect = {
   id: true,
   email: true,
   fullName: true,
+  nbm: true,
   role: true,
   isActive: true,
   lastLoginAt: true,
@@ -97,7 +99,7 @@ export class UsersService {
   async updateProfile(user: SessionUser, dto: UpdateProfileDto, req: Request) {
     const updated = await this.prisma.user.update({
       where: { id: user.id },
-      data: { fullName: dto.fullName.trim() },
+      data: { fullName: dto.fullName.trim(), ...(dto.nbm !== undefined ? { nbm: dto.nbm?.trim() || null } : {}) },
       select: profileSelect,
     });
     await this.audit.log({
@@ -331,8 +333,9 @@ export class UsersService {
       );
     }
     const target = await this.anyTarget(admin, id);
-    const data: { fullName?: string; email?: string } = {};
+    const data: { fullName?: string; email?: string; nbm?: string | null } = {};
     if (dto.fullName !== undefined) data.fullName = dto.fullName.trim();
+    if (dto.nbm !== undefined) data.nbm = dto.nbm?.trim() || null;
     if (dto.email !== undefined) {
       const email = dto.email.trim().toLowerCase();
       const dup = await this.prisma.user.findFirst({
