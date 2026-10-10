@@ -7,7 +7,7 @@ import { Errors } from "../common/errors/api-exception";
 import { ApiErrorCode } from "../common/errors/error-codes";
 import { Paginated, PaginationParams, buildPaginated } from "../common/http/pagination";
 import type { SessionUser } from "../auth/types/session-user";
-import { CreateClassDto, PromoteClassDto } from "./dto/class.dto";
+import { CreateClassDto, PromoteClassDto, UpdateClassDto } from "./dto/class.dto";
 
 @Injectable()
 export class ClassesService {
@@ -114,6 +114,62 @@ export class ClassesService {
       afterJson: toClassJson(klass) as Record<string, unknown>,
     });
     return toClassJson(klass);
+  }
+
+  /**
+   * Update kelas: nama dan/atau wali kelas. gradeLevel immutable — mengubahnya
+   * akan merusak konsistensi KKTP per tingkat & rapor yang sudah terbit.
+   * SUPERADMIN only.
+   */
+  async update(user: SessionUser, id: string, dto: UpdateClassDto, req: Request) {
+    const klass = await this.policy.classInSchool(user.schoolId, id);
+    const data: { name?: string; homeroomTeacherId?: string | null } = {};
+
+    if (dto.name !== undefined) {
+      const name = dto.name.trim();
+      const dup = await this.prisma.class.findFirst({
+        where: { academicYearId: klass.academicYearId, name, id: { not: klass.id } },
+        select: { id: true },
+      });
+      if (dup) {
+        throw Errors.conflict(ApiErrorCode.RESOURCE_CONFLICT, "Kelas dengan nama ini sudah ada di tahun ajaran ini.");
+      }
+      data.name = name;
+    }
+
+    if (dto.homeroomTeacherId !== undefined) {
+      if (dto.homeroomTeacherId) {
+        const teacher = await this.prisma.user.findFirst({
+          where: { id: dto.homeroomTeacherId, schoolId: user.schoolId },
+        });
+        if (!teacher) throw Errors.notFound("Guru");
+        if (teacher.role !== "TEACHER") {
+          throw Errors.validation(
+            ApiErrorCode.VALIDATION_ERROR,
+            "Wali kelas harus user dengan role guru.",
+          );
+        }
+      }
+      data.homeroomTeacherId = dto.homeroomTeacherId ?? null;
+    }
+
+    if (Object.keys(data).length === 0) {
+      throw Errors.validation(ApiErrorCode.VALIDATION_ERROR, "Tidak ada perubahan yang dikirim.");
+    }
+
+    const before = toClassJson(klass);
+    const updated = await this.prisma.class.update({ where: { id: klass.id }, data });
+    await this.audit.log({
+      req,
+      schoolId: user.schoolId,
+      actorUserId: user.id,
+      action: AuditAction.CLASS_UPDATE,
+      entityType: "Class",
+      entityId: klass.id,
+      beforeJson: before as Record<string, unknown>,
+      afterJson: toClassJson(updated) as Record<string, unknown>,
+    });
+    return toClassJson(updated);
   }
 
   /**

@@ -19,6 +19,7 @@ export type {
   CreateAssessmentCategoryInput,
   CreateAssessmentInput,
   CreateClassInput,
+  UpdateClassInput,
   CreateCpInput,
   CreateEnrollmentInput,
   CreateGuardianInput,

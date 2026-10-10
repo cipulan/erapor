@@ -240,6 +240,10 @@ export interface CreateClassInput {
   gradeLevel: number;
   homeroomTeacherId?: string;
 }
+export interface UpdateClassInput {
+  name?: string;
+  homeroomTeacherId?: string | null;
+}
 
 export interface Subject {
   id: string;

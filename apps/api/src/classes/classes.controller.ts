@@ -1,11 +1,11 @@
-import { Body, Controller, Get, HttpCode, Param, Post, Query, Req } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Param, Patch, Post, Query, Req } from "@nestjs/common";
 import { Request } from "express";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { Roles } from "../common/decorators/roles.decorator";
 import { parsePagination } from "../common/http/pagination";
 import type { SessionUser } from "../auth/types/session-user";
 import { ClassesService } from "./classes.service";
-import { CreateClassDto, PromoteClassDto } from "./dto/class.dto";
+import { CreateClassDto, PromoteClassDto, UpdateClassDto } from "./dto/class.dto";
 
 @Controller("classes")
 export class ClassesController {
@@ -21,6 +21,17 @@ export class ClassesController {
   @Roles("SUPERADMIN")
   async create(@CurrentUser() user: SessionUser, @Body() dto: CreateClassDto, @Req() req: Request) {
     return this.service.create(user, dto, req);
+  }
+
+  @Patch(":id")
+  @Roles("SUPERADMIN")
+  async update(
+    @CurrentUser() user: SessionUser,
+    @Param("id") id: string,
+    @Body() dto: UpdateClassDto,
+    @Req() req: Request,
+  ) {
+    return this.service.update(user, id, dto, req);
   }
 
   @Post(":id/promote")

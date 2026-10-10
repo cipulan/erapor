@@ -13,6 +13,7 @@ import type {
   CreateAssessmentCategoryInput,
   CreateAssessmentInput,
   CreateClassInput,
+  UpdateClassInput,
   CreateCpInput,
   CreateEnrollmentInput,
   CreateGuardianInput,
@@ -259,6 +260,7 @@ export function createApiClient(options: ClientOptions) {
       list: (params?: PageParams & { academicYearId?: string }) =>
         get<Paginated<ClassItem>>(`/classes${buildQuery(params)}`),
       create: (data: CreateClassInput) => post<ClassItem>("/classes", data),
+      update: (id: string, data: UpdateClassInput) => patch<ClassItem>(`/classes/${id}`, data),
     },
 
     // ---- Mapel & kurikulum ----

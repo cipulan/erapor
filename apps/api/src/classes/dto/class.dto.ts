@@ -27,6 +27,18 @@ export class CreateClassDto {
   homeroomTeacherId?: string;
 }
 
+/** PATCH /classes/:id — admin mengubah nama / wali kelas (gradeLevel immutable). */
+export class UpdateClassDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(1, { message: "Nama kelas wajib diisi." })
+  name?: string;
+
+  @IsOptional()
+  @IsUUID("4", { message: "homeroomTeacherId tidak valid." })
+  homeroomTeacherId?: string | null;
+}
+
 export class PromoteClassDto {
   @IsUUID("4", { message: "targetAcademicYearId tidak valid." })
   targetAcademicYearId!: string;
